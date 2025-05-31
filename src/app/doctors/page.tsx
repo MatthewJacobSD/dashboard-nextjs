@@ -1,18 +1,18 @@
 'use client';
 
-// 🏗️ Imports
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { z } from 'zod';
-import { Doctor, createDoctorSchema, updateDoctorSchema, DoctorCreateInput } from '@/lib/zod';
+import { Doctor, createDoctorSchema, updateDoctorSchema, DoctorCreateInput, DoctorUpdateInput } from '@/lib/zod';
 import { fetchDoctors, deleteDoctor, createDoctor, updateDoctor } from './actions';
 import { Table } from '@/features/doctor/Table';
 import { Cards } from '@/features/doctor/Cards';
+import { Modal } from '@/components/ui/Modal';
+import { CreateDoctorForm } from '@/features/doctor/Form/Create';
+import { UpdateDoctorForm } from '@/features/doctor/Form/Update';
 import Loading from './loading';
-import { SpecializationList, ExperienceLevelList } from '@/lib/types';
 
 export default function DoctorsPage() {
-  // 🎛️ State management
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,20 +22,10 @@ export default function DoctorsPage() {
   const [view, setView] = useState<'table' | 'cards'>('table');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
 
-  // 📝 Form state
-  const [formData, setFormData] = useState<DoctorCreateInput>({
-    firstName: '',
-    lastName: '',
-    address: '',
-    email: '',
-    specialization: SpecializationList.General,
-    experience: ExperienceLevelList.Novice,
-  });
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof DoctorCreateInput, string>>>({});
-
-  // 📡 Fetch doctors on page/size change
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -53,312 +43,245 @@ export default function DoctorsPage() {
     fetchData();
   }, [page, size]);
 
-  // ✏️ Edit doctor (open modal with doctor data)
   const handleEdit = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
-    setFormData({
-      firstName: doctor.firstName,
-      lastName: doctor.lastName || '',
-      address: doctor.address || '',
-      email: doctor.email,
-      specialization: doctor.specialization || SpecializationList.General, // Fallback to default
-      experience: doctor.experience || ExperienceLevelList.Novice, // Fallback to default
-    });
     setIsEditModalOpen(true);
   };
 
-  // 🗑️ Delete doctor with confirmation
-  const handleDelete = async (doctor: Doctor) => {
-    if (!confirm(`Delete ${doctor.firstName} ${doctor.lastName || ''}?`)) return;
+  const handleDeleteRequest = (doctor: Doctor) => {
+    setDoctorToDelete(doctor);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!doctorToDelete) return;
     try {
-      await deleteDoctor(doctor.id);
-      setDoctors((prev) => prev.filter((d) => d.id !== doctor.id));
+      await deleteDoctor(doctorToDelete.id);
+      setDoctors((prev) => prev.filter((d) => d.id !== doctorToDelete.id));
       toast.success('Doctor deleted successfully');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete doctor');
+    } finally {
+      setIsDeleteModalOpen(false);
+      setDoctorToDelete(null);
     }
   };
 
-  // 📝 Handle form submission (add or edit)
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleAddSubmit = async (data: DoctorCreateInput) => {
     try {
-      if (selectedDoctor) {
-        // ✏️ Update existing doctor
-        const validated = updateDoctorSchema.parse({
-          id: selectedDoctor.id,
-          ...formData,
-        });
-        const response = await updateDoctor(selectedDoctor.id, validated);
-        setDoctors((prev) =>
-          prev.map((d) => (d.id === selectedDoctor.id ? response.data : d))
-        );
-        toast.success('Doctor updated successfully');
-      } else {
-        // ➕ Create new doctor
-        const validated = createDoctorSchema.parse(formData);
-        const response = await createDoctor(validated);
-        setDoctors((prev) => [...prev, response.data]);
-        toast.success('Doctor added successfully');
-      }
-      setIsEditModalOpen(false);
+      const validated = createDoctorSchema.parse(data);
+      const response = await createDoctor(validated);
+      setDoctors((prev) => [...prev, response.data]);
+      toast.success('Doctor added successfully');
       setIsAddModalOpen(false);
-      setFormData({
-        firstName: '',
-        lastName: '',
-        address: '',
-        email: '',
-        specialization: SpecializationList.General,
-        experience: ExperienceLevelList.Novice,
-      });
+    } catch (err: unknown) {
+      if (err instanceof z.ZodError) {
+        throw err.errors.reduce((acc, e) => ({
+          ...acc,
+          [e.path[0] as keyof DoctorCreateInput]: e.message,
+        }), {});
+      }
+      toast.error(err instanceof Error ? err.message : 'Failed to save doctor');
+    }
+  };
+
+  const handleEditSubmit = async (data: DoctorUpdateInput) => {
+    if (!selectedDoctor) return;
+    if (data.id !== selectedDoctor.id) {
+      throw new Error('Doctor ID mismatch');
+    }
+    try {
+      const validated = updateDoctorSchema.parse(data);
+      const response = await updateDoctor(selectedDoctor.id, validated);
+      setDoctors((prev) =>
+        prev.map((d) => (d.id === selectedDoctor.id ? response.data : d))
+      );
+      toast.success('Doctor updated successfully');
+      setIsEditModalOpen(false);
       setSelectedDoctor(null);
     } catch (err: unknown) {
       if (err instanceof z.ZodError) {
-        const errors: Partial<Record<keyof DoctorCreateInput, string>> = {};
-        err.errors.forEach((e) => {
-          if (e.path[0]) {
-            errors[e.path[0] as keyof DoctorCreateInput] = e.message;
-          }
-        });
-        setFormErrors(errors);
-      } else {
-        toast.error(err instanceof Error ? err.message : 'Failed to save doctor');
+        throw err.errors.reduce((acc, e) => ({
+          ...acc,
+          [e.path[0] as keyof DoctorUpdateInput]: e.message,
+        }), {});
       }
+      toast.error(err instanceof Error ? err.message : 'Failed to save doctor');
     }
   };
 
-  // ✏️ Handle input changes
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-    field: keyof DoctorCreateInput
-  ) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
-    setFormErrors((prev) => ({ ...prev, [field]: undefined }));
-  };
-
   return (
-    <div className="container mx-auto py-6">
-      <h1 className="text-2xl font-bold text-gray-100 mb-4">Doctors</h1>
-
-      {/* 🎛️ Control bar */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold text-gray-100">Doctors Data</h2>
-          <p className="text-sm text-gray-500">View and manage doctor records</p>
+    <div className="container mx-auto py-8 px-4 sm:px-6 max-w-7xl">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        {/* Header section */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Doctors Management</h1>
+          <p className="text-gray-600 dark:text-gray-400">View and manage all doctor records in your system</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setView('table')}
-            className={`px-4 py-2 rounded text-white ${view === 'table' ? 'bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
-          >
-            Table View
-          </button>
-          <button
-            onClick={() => setView('cards')}
-            className={`px-4 py-2 rounded text-white ${view === 'cards' ? 'bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'}`}
-          >
-            Cards View
-          </button>
-          <button onClick={() => setIsAddModalOpen(true)} className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
-            Add Doctor
-          </button>
+
+        {/* Control bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Doctor Records</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {doctors.length} {doctors.length === 1 ? 'record' : 'records'} found
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => setView('table')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                view === 'table'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              } hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              Table View
+            </button>
+            <button
+              onClick={() => setView('cards')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                view === 'cards'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              } hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            >
+              Cards View
+            </button>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Add New Doctor
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* ❌ Error display */}
-      {error && <div className="text-red-500 text-center py-4">{error}</div>}
+        {/* Error display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+          </div>
+        )}
 
-      {/* ➕ Add doctor modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-lg max-w-lg w-full">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">Add New Doctor</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {['firstName', 'lastName', 'address', 'email'].map((field) => (
-                <div key={field}>
-                  <label className="block text-sm text-gray-400">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
-                  <input
-                    type={field === 'email' ? 'email' : 'text'}
-                    value={formData[field as keyof DoctorCreateInput]}
-                    onChange={(e) => handleInputChange(e, field as keyof DoctorCreateInput)}
-                    className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                  />
-                  {formErrors[field as keyof DoctorCreateInput] && (
-                    <p className="text-red-500 text-sm">{formErrors[field as keyof DoctorCreateInput]}</p>
-                  )}
-                </div>
-              ))}
+        {/* Add doctor modal */}
+        <Modal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Doctor"
+        >
+          <CreateDoctorForm
+            onSubmit={handleAddSubmit}
+            onCancel={() => setIsAddModalOpen(false)}
+          />
+        </Modal>
 
-              <div>
-                <label className="block text-sm text-gray-400">Specialization</label>
-                <select
-                  value={formData.specialization}
-                  onChange={(e) => handleInputChange(e, 'specialization')}
-                  className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                >
-                  {Object.values(SpecializationList).map((spec) => (
-                    <option key={spec} value={spec}>{spec}</option>
-                  ))}
-                </select>
-              </div>
+        {/* Edit doctor modal */}
+        {selectedDoctor && (
+          <Modal
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false);
+              setSelectedDoctor(null);
+            }}
+            title={`Edit Doctor: ${selectedDoctor.firstName} ${selectedDoctor.lastName || ''}`}
+          >
+            <UpdateDoctorForm
+              initialValues={{
+                id: selectedDoctor.id,
+                firstName: selectedDoctor.firstName,
+                lastName: selectedDoctor.lastName || '',
+                address: selectedDoctor.address || '',
+                email: selectedDoctor.email,
+                specialization: selectedDoctor.specialization || 'General',
+                experience: selectedDoctor.experience || 'Novice',
+              }}
+              onSubmit={handleEditSubmit}
+              onCancel={() => {
+                setIsEditModalOpen(false);
+                setSelectedDoctor(null);
+              }}
+            />
+          </Modal>
+        )}
 
-              <div>
-                <label className="block text-sm text-gray-400">Experience</label>
-                <select
-                  value={formData.experience}
-                  onChange={(e) => handleInputChange(e, 'experience')}
-                  className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                >
-                  {Object.values(ExperienceLevelList).map((exp) => (
-                    <option key={exp} value={exp}>{exp}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2">
+        {/* Delete confirmation modal */}
+        {doctorToDelete && (
+          <Modal
+            isOpen={isDeleteModalOpen}
+            onClose={() => {
+              setIsDeleteModalOpen(false);
+              setDoctorToDelete(null);
+            }}
+            title="Confirm Deletion"
+          >
+            <div className="space-y-4">
+              <p className="text-gray-700 dark:text-gray-300">
+                Are you sure you want to permanently delete{' '}
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {doctorToDelete.firstName} {doctorToDelete.lastName || ''}
+                </span>
+                ? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
                 <button
-                  type="button"
                   onClick={() => {
-                    setIsAddModalOpen(false);
-                    setFormErrors({});
-                    setFormData({
-                      firstName: '',
-                      lastName: '',
-                      address: '',
-                      email: '',
-                      specialization: SpecializationList.General,
-                      experience: ExperienceLevelList.Novice,
-                    });
+                    setIsDeleteModalOpen(false);
+                    setDoctorToDelete(null);
                   }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
-                  Add Doctor
+                  Confirm Delete
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ✏️ Edit doctor modal */}
-      {isEditModalOpen && selectedDoctor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 p-6 rounded-lg max-w-lg w-full">
-            <h2 className="text-xl font-semibold text-gray-100 mb-4">Edit Doctor: {selectedDoctor.firstName} {selectedDoctor.lastName || ''}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {['firstName', 'lastName', 'address', 'email'].map((field) => (
-                <div key={field}>
-                  <label className="block text-sm text-gray-400">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
-                  <input
-                    type={field === 'email' ? 'email' : 'text'}
-                    value={formData[field as keyof DoctorCreateInput]}
-                    onChange={(e) => handleInputChange(e, field as keyof DoctorCreateInput)}
-                    className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                  />
-                  {formErrors[field as keyof DoctorCreateInput] && (
-                    <p className="text-red-500 text-sm">{formErrors[field as keyof DoctorCreateInput]}</p>
-                  )}
-                </div>
-              ))}
-
-              <div>
-                <label className="block text-sm text-gray-400">Specialization</label>
-                <select
-                  value={formData.specialization}
-                  onChange={(e) => handleInputChange(e, 'specialization')}
-                  className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                >
-                  {Object.values(SpecializationList).map((spec) => (
-                    <option key={spec} value={spec}>{spec}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400">Experience</label>
-                <select
-                  value={formData.experience}
-                  onChange={(e) => handleInputChange(e, 'experience')}
-                  className="w-full p-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
-                >
-                  {Object.values(ExperienceLevelList).map((exp) => (
-                    <option key={exp} value={exp}>{exp}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setFormErrors({});
-                    setSelectedDoctor(null);
-                    setFormData({
-                      firstName: '',
-                      lastName: '',
-                      address: '',
-                      email: '',
-                      specialization: SpecializationList.General,
-                      experience: ExperienceLevelList.Novice,
-                    });
-                  }}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 👀 Content display */}
-      {isLoading ? (
-        <Loading view={view} />
-      ) : (
-        <>
-          {view === 'table' ? (
-            <Table data={doctors} onEdit={handleEdit} onDelete={handleDelete} />
-          ) : (
-            <Cards data={doctors} onEdit={handleEdit} onDelete={handleDelete} />
-          )}
-
-          {totalPages > 1 && (
-            <div className="mt-4 flex justify-center gap-4">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-                className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-              >
-                Previous
-              </button>
-              <span className="text-gray-100">
-                Page {page + 1} of {totalPages}
-              </span>
-              <button
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-              >
-                Next
-              </button>
             </div>
-          )}
-        </>
-      )}
+          </Modal>
+        )}
+
+        {/* Content display */}
+        {isLoading ? (
+          <Loading view={view} />
+        ) : (
+          <>
+            {view === 'table' ? (
+              <Table data={doctors} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+            ) : (
+              <Cards data={doctors} onEdit={handleEdit} onDelete={handleDeleteRequest} />
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing page {page + 1} of {totalPages}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => p - 1)}
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-800 disabled:opacity-50 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-all hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage((p) => p + 1)}
+                    className="px-4 py-2 bg-blue-600 disabled:opacity-50 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f1f5f9; /* Light gray for a fresh look */
+  --foreground: #1f2937; /* Darker gray for contrast */
+  /* Fluid typography for all screen sizes */
+  --font-size-base: clamp(14px, 2.5vw, 16px);
+  --font-size-heading: clamp(20px, 4vw, 24px);
+  /* Accent Colors in HSL, cranked up for vibrancy */
+  --color-orange: 28 100% 60%; /* Brighter orange */
+  --color-purple: 280 90% 70%; /* Lighter, vibrant purple */
+  --color-yellow: 45 80% 60%; /* Brighter yellow */
+  --color-green: 135 70% 55%; /* Popping green */
+  --color-cyan: 185 80% 55%; /* Vivid cyan */
+  --color-gray-dark: 0 0% 15%; /* Lighter dark gray */
+  --color-red: 0 85% 65%; /* Brighter red for errors */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size-base);
+}
+
+/* Custom utility classes for colors, Tailwind v4 style */
+@layer utilities {
+  .bg-orange { background-color: hsl(var(--color-orange)); }
+  .text-orange { color: hsl(var(--color-orange)); }
+  .border-orange { border-color: hsl(var(--color-orange)); }
+  .bg-purple { background-color: hsl(var(--color-purple)); }
+  .text-purple { color: hsl(var(--color-purple)); }
+  .border-purple { border-color: hsl(var(--color-purple)); }
+  .bg-yellow { background-color: hsl(var(--color-yellow)); }
+  .text-yellow { color: hsl(var(--color-yellow)); }
+  .border-yellow { border-color: hsl(var(--color-yellow)); }
+  .bg-green { background-color: hsl(var(--color-green)); }
+  .text-green { color: hsl(var(--color-green)); }
+  .border-green { border-color: hsl(var(--color-green)); }
+  .bg-cyan { background-color: hsl(var(--color-cyan)); }
+  .text-cyan { color: hsl(var(--color-cyan)); }
+  .border-cyan { border-color: hsl(var(--color-cyan)); }
+  .bg-gray-dark { background-color: hsl(var(--color-gray-dark)); }
+  .text-gray-dark { color: hsl(var(--color-gray-dark)); }
+  .border-gray-dark { border-color: hsl(var(--color-gray-dark)); }
+  .bg-red { background-color: hsl(var(--color-red)); }
+  .text-red { color: hsl(var(--color-red)); }
+  .border-red { border-color: hsl(var(--color-red)); }
+}
+
+/* Toastify styles, now with more pop */
+.Toastify__toast--success {
+  background: hsl(var(--color-green)/0.3);
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--color-green)/0.5);
+  color: hsl(var(--color-green));
+}
+
+.Toastify__toast--error {
+  background: hsl(var(--color-red)/0.3);
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--color-red)/0.5);
+  color: hsl(var(--color-red));
+}
+
+.Toastify__toast--warning {
+  background: hsl(var(--color-yellow)/0.3);
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--color-yellow)/0.5);
+  color: hsl(var(--color-yellow));
+}
+
+.Toastify__toast--info {
+  background: hsl(var(--color-cyan)/0.3);
+  backdrop-filter: blur(6px);
+  border: 1px solid hsl(var(--color-cyan)/0.5);
+  color: hsl(var(--color-cyan));
+}
+
+.Toastify__progress-bar {
+  background-color: hsl(var(--color-gray-dark)/0.2);
+}
+
+.Toastify__toast {
+  border-radius: 0.75rem;
+  backdrop-filter: blur(6px);
+  font-size: var(--font-size-base);
+}
+
+.Toastify__close-button {
+  color: hsl(var(--foreground)/0.8) !important;
 }

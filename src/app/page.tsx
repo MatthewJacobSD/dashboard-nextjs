@@ -9,8 +9,15 @@ import {
   Pill, 
   ClipboardList, 
   Hospital, 
-  Shield 
+  Shield,
+  ArrowUp,
+  ArrowDown,
+  TrendingUp,
+  TrendingDown,
+  Check,
+  Heart
 } from 'lucide-react'
+import { cn } from '@/lib/utils' // Import the cn utility
 
 interface StatsData {
   doctors: number
@@ -24,11 +31,15 @@ interface StatsData {
 export default function HomePage() {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [previousStats, setPreviousStats] = useState<StatsData | null>(null)
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await api.get<StatsData>('/api/stats')
+        // Store current stats as previous before fetching new ones
+        if (stats) setPreviousStats(stats)
+        
+        const response = await api.get<StatsData>('/stats')
         setStats(response.data)
       } finally {
         setLoading(false)
@@ -36,19 +47,32 @@ export default function HomePage() {
     }
 
     fetchStats()
-  }, [])
+    // Set up polling every 30 seconds
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
+  }, [stats]) // Added stats to dependency array
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6 text-gray-100">Welcome to the Dashboard</h1>
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-yellow mb-1">
+          Welcome back, Doc!
+        </h1>
+        <p className="text-foreground/80">
+          Here&apos;s what&apos;s happening with your practice today
+        </p>
+      </div>
       
       <ErrorBoundary 
         fallback={(error) => (
-          <div className="text-red-400 p-4 border border-red-800 bg-red-900/50 rounded">
-            Dashboard Error: {error.message}
+          <div className="text-red p-4 border border-red/30 bg-red/10 rounded-lg mb-6">
+            <div className="flex items-center gap-2">
+              <span className="font-bold">Oops!</span>
+              <span className="text-sm">Error: {error.message}</span>
+            </div>
             <button
               onClick={() => window.location.reload()}
-              className="ml-3 px-3 py-1 bg-red-800 rounded hover:bg-red-700"
+              className="mt-3 px-4 py-2 bg-red/80 rounded-lg hover:bg-red/90 text-foreground"
             >
               Reload Dashboard
             </button>
@@ -59,7 +83,7 @@ export default function HomePage() {
         {loading ? (
           <StatsGridSkeleton />
         ) : (
-          <StatsGrid stats={stats} />
+          <StatsGrid stats={stats} previousStats={previousStats} />
         )}
       </ErrorBoundary>
     </div>
@@ -68,92 +92,180 @@ export default function HomePage() {
 
 function StatsGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-gray-900 p-4 rounded-md border border-gray-800 animate-pulse">
-          <div className="h-5 w-3/4 bg-gray-700 rounded mb-3" />
-          <div className="h-8 w-1/2 bg-gray-700 rounded mb-2" />
-          <div className="h-4 w-3/4 bg-gray-700 rounded" />
+        <div 
+          key={i} 
+          className="bg-gray-dark/50 p-5 rounded-lg border border-gray-dark/30 animate-pulse"
+        >
+          <div className="h-6 w-24 bg-gray-dark/70 rounded mb-4" />
+          <div className="h-8 w-12 bg-gray-dark/70 rounded mb-2" />
+          <div className="h-4 w-32 bg-gray-dark/70 rounded" />
         </div>
       ))}
     </div>
   )
 }
 
-function StatsGrid({ stats }: { stats: StatsData | null }) {
+function StatsGrid({ stats, previousStats }: { stats: StatsData | null, previousStats: StatsData | null }) {
+  const getTrendDirection = (current: number | undefined, previous: number | undefined) => {
+    if (current === undefined || previous === undefined) return 'neutral'
+    if (current > previous) return 'up'
+    if (current < previous) return 'down'
+    return 'neutral'
+  }
+
   const statItems = [
     { 
       title: "Doctors", 
-      value: stats?.doctors, 
-      icon: <Stethoscope className="w-6 h-6" />,
-      description: "Medical professionals" 
-    },
-    { 
-      title: "Patients", 
-      value: stats?.patients, 
-      icon: <User className="w-6 h-6" />,
-      description: "Active patients" 
-    },
-    { 
-      title: "Medications", 
-      value: stats?.medications, 
-      icon: <Pill className="w-6 h-6" />,
-      description: "Available drugs" 
+      value: stats?.doctors ?? 0, 
+      previousValue: previousStats?.doctors ?? 0,
+      icon: <Stethoscope className="w-5 h-5" />,
+      description: "Rockstar medical pros",
+      color: "cyan",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <TrendingUp className="w-4 h-4 text-green-400 animate-bounce" />
+        if (direction === 'down') return <TrendingDown className="w-4 h-4 text-red-400 animate-bounce" />
+        return <span className="text-foreground/50">—</span>
+      }
     },
     { 
       title: "Prescriptions", 
-      value: stats?.prescriptions, 
-      icon: <ClipboardList className="w-6 h-6" />,
-      description: "Active prescriptions" 
+      value: stats?.prescriptions ?? 0, 
+      previousValue: previousStats?.prescriptions ?? 0,
+      icon: <ClipboardList className="w-5 h-5" />,
+      description: "Scripts making lives better",
+      color: "orange",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <ArrowUp className="w-4 h-4 text-green-400 animate-bounce" />
+        if (direction === 'down') return <ArrowDown className="w-4 h-4 text-red-400 animate-bounce" />
+        return <span className="text-foreground/50">—</span>
+      }
+    },
+    { 
+      title: "Patients", 
+      value: stats?.patients ?? 0, 
+      previousValue: previousStats?.patients ?? 0,
+      icon: <User className="w-5 h-5" />,
+      description: "People trusting your skills",
+      color: "cyan",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <ArrowUp className="w-4 h-4 text-green-400 animate-bounce" />
+        if (direction === 'down') return <ArrowDown className="w-4 h-4 text-red-400 animate-bounce" />
+        return <span className="text-foreground/50">—</span>
+      }
     },
     { 
       title: "Visits", 
-      value: stats?.visits, 
-      icon: <Hospital className="w-6 h-6" />,
-      description: "Completed visits" 
+      value: stats?.visits ?? 0, 
+      previousValue: previousStats?.visits ?? 0,
+      icon: <Hospital className="w-5 h-5" />,
+      description: "Appointments crushed today",
+      color: "purple",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <TrendingUp className="w-4 h-4 text-green-400 animate-bounce" />
+        if (direction === 'down') return <TrendingDown className="w-4 h-4 text-red-400 animate-bounce" />
+        return <span className="text-foreground/50">—</span>
+      }
+    },
+    { 
+      title: "Medications", 
+      value: stats?.medications ?? 0, 
+      previousValue: previousStats?.medications ?? 0,
+      icon: <Pill className="w-5 h-5" />,
+      description: "Drugs in your arsenal",
+      color: "green",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <Check className="w-4 h-4 text-green-400 animate-bounce" />
+        if (direction === 'down') return <span className="text-red-400">✕</span>
+        return <span className="text-foreground/50">—</span>
+      }
     },
     { 
       title: "Insurances", 
-      value: stats?.insurances, 
-      icon: <Shield className="w-6 h-6" />,
-      description: "Covered patients" 
+      value: stats?.insurances ?? 0, 
+      previousValue: previousStats?.insurances ?? 0,
+      icon: <Shield className="w-5 h-5" />,
+      description: "Covered and protected",
+      color: "yellow",
+      trendIcon: (direction: string) => {
+        if (direction === 'up') return <Heart className="w-4 h-4 text-red-400 animate-pulse" />
+        if (direction === 'down') return <span className="text-red-400">💔</span>
+        return <span className="text-foreground/50">—</span>
+      }
     }
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {statItems.map((item) => (
-        <StatCard 
-          key={item.title}
-          title={item.title}
-          value={item.value}
-          icon={item.icon}
-          description={item.description}
-        />
-      ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {statItems.map((item) => {
+        const trendDirection = getTrendDirection(item.value, item.previousValue)
+        const TrendIcon = item.trendIcon(trendDirection)
+        const change = item.value - item.previousValue
+        
+        return (
+          <StatCard 
+            key={item.title}
+            title={item.title}
+            value={item.value}
+            icon={item.icon}
+            description={item.description}
+            color={item.color as 'cyan' | 'green' | 'orange' | 'purple' | 'yellow'}
+            trendIcon={TrendIcon}
+            change={change}
+          />
+        )
+      })}
     </div>
   )
 }
 
 interface StatCardProps {
   title: string
-  value?: number
+  value: number
   icon: React.ReactNode
   description: string
+  color: 'cyan' | 'green' | 'orange' | 'purple' | 'yellow'
+  trendIcon: React.ReactNode
+  change: number
 }
 
-function StatCard({ title, value, icon, description }: StatCardProps) {
+function StatCard({ title, value, icon, description, color, trendIcon, change }: StatCardProps) {
+  const colorClasses = {
+    cyan: 'text-cyan border-cyan/20',
+    green: 'text-green border-green/20',
+    orange: 'text-orange border-orange/20',
+    purple: 'text-purple border-purple/20',
+    yellow: 'text-yellow border-yellow/20'
+  }
+
   return (
-    <div className="border border-gray-800 p-4 rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors">
-      <div className="flex justify-between items-start">
-        <h3 className="font-medium text-gray-300">{title}</h3>
-        <span className="text-gray-400">
+    <div className={cn(
+      'border p-5 rounded-lg bg-gray-dark/40',
+      colorClasses[color]
+    )}>
+      <div className="flex justify-between items-start mb-3">
+        <h3 className="font-medium text-foreground/90 flex items-center gap-2">
           {icon}
-        </span>
+          {title}
+        </h3>
+        <div className="flex items-center gap-1">
+          {change !== 0 && (
+            <span className={cn(
+              'text-xs',
+              change > 0 ? 'text-green-400' : 'text-red-400'
+            )}>
+              {change > 0 ? '+' : ''}{change}
+            </span>
+          )}
+          {trendIcon}
+        </div>
       </div>
-      <div className="mt-2">
-        <p className="text-3xl font-bold text-gray-100">{value?.toLocaleString() ?? '-'}</p>
-        <p className="text-sm text-gray-400 mt-1">{description}</p>
+      <div>
+        <p className="text-3xl font-bold mb-1">{value.toLocaleString()}</p>
+        <p className="text-sm text-foreground/70 flex items-center gap-1">
+          {description}
+        </p>
       </div>
     </div>
   )
