@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api } from '@/utils/axios'
-import ErrorBoundary from '@/utils/error'
+import { api } from '@/shared/lib/axios'
+import ErrorBoundary from '@/shared/lib/error'
 import { 
   Stethoscope, 
   User, 
@@ -17,7 +17,7 @@ import {
   Check,
   Heart
 } from 'lucide-react'
-import { cn } from '@/lib/utils' // Import the cn utility
+import { cn } from '@/shared/utils/cnUtils' // Import the cn utility
 
 interface StatsData {
   doctors: number

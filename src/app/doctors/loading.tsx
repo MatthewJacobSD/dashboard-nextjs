@@ -1,23 +1,32 @@
-'use client';
+import { SkeletonCards, SkeletonTable } from '@/shared/components/ui/Skeleton';
+import { PageHeader } from '@/shared/components/ui/PageHeader';
+import { ActionBar } from '@/shared/components/ui/generics/ActionBar';
 
-// Skeleton components for loading states
-import { SkeletonCards, SkeletonTable } from '@/features/doctor/Skeleton';
-
-// Loading component for doctor management page
-export default function Loading({ view }: { view: 'table' | 'cards' }) {
-  // Render loading UI with vibrant styles
+export default function DoctorsLoading() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-yellow-500 mb-6">Doctor Management</h1>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-1">
-            <h2 className="text-lg sm:text-xl font-semibold text-cyan-500">Doctors Data</h2>
-            <p className="text-sm text-gray-600">You can view, add, edit, and delete doctors at choice</p>
+    <div className="p-6 sm:p-8 lg:p-10">
+      <PageHeader
+        title="Doctors Management"
+        description="Manage all doctors in the hospital system"
+      />
+
+      <ActionBar
+        title="Loading Doctors"
+        description="Please wait while we load the doctors list"
+        actions={
+          <div className="flex gap-3">
+            <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse" />
+            <div className="h-10 w-36 bg-gray-200 rounded-lg animate-pulse" />
           </div>
-          <div className="h-10 w-32 bg-gray-300/70 rounded-lg animate-pulse" />
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-6">
+        <div className="flex gap-4 mb-4">
+          <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse" />
+          <div className="h-10 w-24 bg-gray-200 rounded-lg animate-pulse" />
         </div>
-        {view === 'table' ? <SkeletonTable /> : <SkeletonCards />}
+        {Math.random() > 0.5 ? <SkeletonCards /> : <SkeletonTable />}
       </div>
     </div>
   );

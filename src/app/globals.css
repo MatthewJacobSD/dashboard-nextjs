@@ -1,92 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f1f5f9; /* Light gray for a fresh look */
-  --foreground: #1f2937; /* Darker gray for contrast */
-  /* Fluid typography for all screen sizes */
-  --font-size-base: clamp(14px, 2.5vw, 16px);
-  --font-size-heading: clamp(20px, 4vw, 24px);
-  /* Accent Colors in HSL, cranked up for vibrancy */
-  --color-orange: 28 100% 60%; /* Brighter orange */
-  --color-purple: 280 90% 70%; /* Lighter, vibrant purple */
-  --color-yellow: 45 80% 60%; /* Brighter yellow */
-  --color-green: 135 70% 55%; /* Popping green */
-  --color-cyan: 185 80% 55%; /* Vivid cyan */
-  --color-gray-dark: 0 0% 15%; /* Lighter dark gray */
-  --color-red: 0 85% 65%; /* Brighter red for errors */
+  /* Base Colors - HSL format for better manipulation */
+  --color-background: 0 0% 100%; /* Pure white */
+  --color-foreground: 220 13% 18%; /* Dark slate for text */
+  --color-surface: 210 20% 98%; /* Lightest gray for surfaces */
+  --color-muted: 215 16% 47%; /* Medium gray for secondary text */
+
+  /* Primary Color Palette - Based on color theory */
+  --color-primary: 215 100% 65%; /* Trustworthy blue (primary actions) */
+  --color-primary-hover: 215 100% 60%;
+  --color-primary-active: 215 100% 55%;
+  
+  /* Secondary Palette - Complementary colors */
+  --color-secondary: 28 100% 65%; /* Vibrant orange (accent) */
+  --color-tertiary: 280 90% 70%; /* Soft purple (secondary actions) */
+  
+  /* Semantic Colors - For clear communication */
+  --color-success: 145 80% 45%; /* Positive actions */
+  --color-warning: 45 100% 60%; /* Warnings */
+  --color-danger: 0 85% 65%; /* Errors/destructive actions */
+  --color-info: 185 90% 55%; /* Informational */
+
+  /* Extended Gray Scale - Consistent steps */
+  --color-gray-50: 210 20% 99%;
+  --color-gray-100: 210 20% 98%;
+  --color-gray-200: 220 14% 96%;
+  --color-gray-300: 215 16% 90%;
+  --color-gray-400: 215 13% 80%;
+  --color-gray-500: 215 10% 65%;
+  --color-gray-600: 215 8% 50%;
+  --color-gray-700: 215 14% 35%;
+  --color-gray-800: 215 20% 25%;
+  --color-gray-900: 215 25% 15%;
+
+  /* Typography */
+  --font-size-base: clamp(1rem, 0.75vw + 0.75rem, 1.125rem);
+  --font-size-heading: clamp(1.5rem, 2vw + 0.5rem, 2.25rem);
+  --font-size-subheading: clamp(1.25rem, 1.5vw + 0.5rem, 1.75rem);
+  --line-height-base: 1.6;
+  --line-height-heading: 1.2;
+
+  /* Spacing System */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+
+  /* Border Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 hsl(var(--color-gray-900)/0.05);
+  --shadow-md: 0 4px 6px -1px hsl(var(--color-gray-900)/0.1), 
+               0 2px 4px -2px hsl(var(--color-gray-900)/0.1);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--color-gray-900)/0.1), 
+               0 4px 6px -4px hsl(var(--color-gray-900)/0.1);
+  --shadow-inner: inset 0 2px 4px 0 hsl(var(--color-gray-900)/0.05);
 }
 
+/* Base Styles */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: hsl(var(--color-background));
+  color: hsl(var(--color-foreground));
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom utility classes for colors, Tailwind v4 style */
+/* Extended Utility Classes */
 @layer utilities {
-  .bg-orange { background-color: hsl(var(--color-orange)); }
-  .text-orange { color: hsl(var(--color-orange)); }
-  .border-orange { border-color: hsl(var(--color-orange)); }
-  .bg-purple { background-color: hsl(var(--color-purple)); }
-  .text-purple { color: hsl(var(--color-purple)); }
-  .border-purple { border-color: hsl(var(--color-purple)); }
-  .bg-yellow { background-color: hsl(var(--color-yellow)); }
-  .text-yellow { color: hsl(var(--color-yellow)); }
-  .border-yellow { border-color: hsl(var(--color-yellow)); }
-  .bg-green { background-color: hsl(var(--color-green)); }
-  .text-green { color: hsl(var(--color-green)); }
-  .border-green { border-color: hsl(var(--color-green)); }
-  .bg-cyan { background-color: hsl(var(--color-cyan)); }
-  .text-cyan { color: hsl(var(--color-cyan)); }
-  .border-cyan { border-color: hsl(var(--color-cyan)); }
-  .bg-gray-dark { background-color: hsl(var(--color-gray-dark)); }
-  .text-gray-dark { color: hsl(var(--color-gray-dark)); }
-  .border-gray-dark { border-color: hsl(var(--color-gray-dark)); }
-  .bg-red { background-color: hsl(var(--color-red)); }
-  .text-red { color: hsl(var(--color-red)); }
-  .border-red { border-color: hsl(var(--color-red)); }
-}
-
-/* Toastify styles, now with more pop */
-.Toastify__toast--success {
-  background: hsl(var(--color-green)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-green)/0.5);
-  color: hsl(var(--color-green));
-}
-
-.Toastify__toast--error {
-  background: hsl(var(--color-red)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-red)/0.5);
-  color: hsl(var(--color-red));
-}
-
-.Toastify__toast--warning {
-  background: hsl(var(--color-yellow)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-yellow)/0.5);
-  color: hsl(var(--color-yellow));
-}
-
-.Toastify__toast--info {
-  background: hsl(var(--color-cyan)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-cyan)/0.5);
-  color: hsl(var(--color-cyan));
-}
-
-.Toastify__progress-bar {
-  background-color: hsl(var(--color-gray-dark)/0.2);
-}
-
-.Toastify__toast {
-  border-radius: 0.75rem;
-  backdrop-filter: blur(6px);
-  font-size: var(--font-size-base);
-}
-
-.Toastify__close-button {
-  color: hsl(var(--foreground)/0.8) !important;
+  /* Color Utilities */
+  .bg-primary { background-color: hsl(var(--color-primary)); }
+  .bg-primary-hover:hover { background-color: hsl(var(--color-primary-hover)); }
+  .bg-primary-active:active { background-color: hsl(var(--color-primary-active)); }
+  
+  .text-primary { color: hsl(var(--color-primary)); }
+  .text-secondary { color: hsl(var(--color-secondary)); }
+  
+  /* Focus States */
+  .focus-ring {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px hsl(var(--color-primary)/0.3);
+  }
+  
+  /* Animation Utilities */
+  .transition-fast {
+    transition: all 0.15s ease-in-out;
+  }
+  .transition-medium {
+    transition: all 0.3s ease-in-out;
+  }
 }

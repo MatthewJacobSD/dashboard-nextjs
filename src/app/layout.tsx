@@ -4,9 +4,9 @@ import { Geist } from "next/font/google";
 // Global styles for consistent theming
 import "./globals.css";
 // Sidebar component for nav, responsive af
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar } from "@/shared/components/Sidebar";
 // Toaster for those slick notifications
-import { ToasterClient } from '@/components/ui/Toaster';
+import { ToasterClient } from '@/shared/components/Toaster';
 
 // Setting up Geist font with Latin subset
 const geistSans = Geist({
@@ -32,7 +32,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} antialiased bg-gray-100 text-foreground`}>
         <div className="flex min-h-screen">
           {/* Sidebar, hidden on mobile for that clean mobile vibe */}
-          <Sidebar className="hidden sm:block" />
+          <Sidebar />
           {/* Main content area, bright and responsive */}
           <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto bg-white/95 backdrop-blur-sm rounded-lg shadow-inner">
             {children}
