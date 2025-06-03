@@ -1,92 +1,426 @@
-@import "tailwindcss";
+/*============Imports============*/
+/** Tailwind v4 import */
+@import 'tailwindcss';
 
+/*============Root Variables============*/
 :root {
-  --background: #f1f5f9; /* Light gray for a fresh look */
-  --foreground: #1f2937; /* Darker gray for contrast */
-  /* Fluid typography for all screen sizes */
+  /*============Primary Colors (HSL)============*/
+  --color-orange: 28 100% 50%;
+  --color-purple: 275 90% 65%;
+  --color-yellow: 45 85% 55%;
+  --color-green: 135 70% 50%;
+  --color-red: 0 85% 60%;
+  --color-cyan: 185 80% 55%;
+
+  /*============Grayscale============*/
+  --color-gray-50: 0 0% 98%;
+  --color-gray-100: 0 0% 95%;
+  --color-gray-200: 0 0% 90%;
+  --color-gray-300: 0 0% 80%;
+  --color-gray-400: 0 0% 60%;
+  --color-gray-500: 0 0% 50%;
+  --color-gray-600: 0 0% 40%;
+  --color-gray-700: 0 0% 30%;
+  --color-gray-800: 0 0% 20%;
+  --color-gray-900: 0 0% 10%;
+
+  /*============Backgrounds & Semantic Colors============*/
+  --background: hsl(var(--color-gray-400));
+  --surface: hsl(var(--color-gray-50));
+  --card: hsl(var(--color-gray-100));
+  --card-foreground: hsl(var(--color-gray-800));
+  --accent-bg: hsl(var(--color-gray-900));
+  --accent-foreground: hsl(var(--color-gray-50));
+
+  /*============Borders and Inputs============*/
+  --border: hsl(var(--color-gray-300));
+  --input: hsl(var(--color-gray-300));
+  --ring: hsl(var(--color-orange));
+
+  /*============Spacing============*/
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 2.5rem; /* Added for larger spacing */
+
+  /*============Radii============*/
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /*============Typography============*/
   --font-size-base: clamp(14px, 2.5vw, 16px);
   --font-size-heading: clamp(20px, 4vw, 24px);
-  /* Accent Colors in HSL, cranked up for vibrancy */
-  --color-orange: 28 100% 60%; /* Brighter orange */
-  --color-purple: 280 90% 70%; /* Lighter, vibrant purple */
-  --color-yellow: 45 80% 60%; /* Brighter yellow */
-  --color-green: 135 70% 55%; /* Popping green */
-  --color-cyan: 185 80% 55%; /* Vivid cyan */
-  --color-gray-dark: 0 0% 15%; /* Lighter dark gray */
-  --color-red: 0 85% 65%; /* Brighter red for errors */
+  --font-size-muted: 0.875rem;
+
+  /*============Shadows============*/
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 10px 15px rgba(0, 0, 0, 0.15);
+  --shadow-3d: 0 10px 20px rgba(0, 0, 0, 0.15), 0 6px 6px rgba(0, 0, 0, 0.1); /* Added for 3D effect */
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: var(--font-size-base);
-}
-
-/* Custom utility classes for colors, Tailwind v4 style */
+/*============Utility Classes============*/
 @layer utilities {
+  /*============Color Utilities============*/
   .bg-orange { background-color: hsl(var(--color-orange)); }
   .text-orange { color: hsl(var(--color-orange)); }
   .border-orange { border-color: hsl(var(--color-orange)); }
+
   .bg-purple { background-color: hsl(var(--color-purple)); }
   .text-purple { color: hsl(var(--color-purple)); }
   .border-purple { border-color: hsl(var(--color-purple)); }
+
   .bg-yellow { background-color: hsl(var(--color-yellow)); }
   .text-yellow { color: hsl(var(--color-yellow)); }
   .border-yellow { border-color: hsl(var(--color-yellow)); }
+
   .bg-green { background-color: hsl(var(--color-green)); }
   .text-green { color: hsl(var(--color-green)); }
   .border-green { border-color: hsl(var(--color-green)); }
+
   .bg-cyan { background-color: hsl(var(--color-cyan)); }
   .text-cyan { color: hsl(var(--color-cyan)); }
   .border-cyan { border-color: hsl(var(--color-cyan)); }
-  .bg-gray-dark { background-color: hsl(var(--color-gray-dark)); }
-  .text-gray-dark { color: hsl(var(--color-gray-dark)); }
-  .border-gray-dark { border-color: hsl(var(--color-gray-dark)); }
+
   .bg-red { background-color: hsl(var(--color-red)); }
   .text-red { color: hsl(var(--color-red)); }
   .border-red { border-color: hsl(var(--color-red)); }
+
+  /*============Gray Utilities============*/
+  .bg-gray-dark { background-color: hsl(var(--color-gray-900)); }
+  .text-gray-dark { color: hsl(var(--color-gray-900)); }
+  .border-gray-dark { border-color: hsl(var(--color-gray-900)); }
+
+  .text-gray-400 { color: hsl(var(--color-gray-400)); }
+  .text-gray-500 { color: hsl(var(--color-gray-500)); }
+  .text-gray-700 { color: hsl(var(--color-gray-700)); }
+  .text-gray-800 { color: hsl(var(--color-gray-800)); }
+  .text-gray-900 { color: hsl(var(--color-gray-900)); }
+  .border-gray-200 { border-color: hsl(var(--color-gray-200)); }
+
+  /*============Semantic Backgrounds============*/
+  .bg-surface { background-color: hsl(var(--surface)); }
+  .bg-card { background-color: hsl(var(--card)); }
+  .bg-accent-bg { background-color: hsl(var(--accent-bg)); }
+
+  /*============Text Colors============*/
+  .text-card-foreground { color: hsl(var(--card-foreground)); }
+
+  /*============Border Colors============*/
+  .border-border { border-color: hsl(var(--border)); }
+
+  /*============Radius============*/
+  .rounded-radius-sm { border-radius: var(--radius-sm); }
+  .rounded-radius-md { border-radius: var(--radius-md); }
+  .rounded-radius-lg { border-radius: var(--radius-lg); }
+  .rounded-radius-xl { border-radius: var(--radius-xl); }
+
+  /*============Spacing============*/
+  .p-space-xs { padding: var(--space-xs); }
+  .p-space-sm { padding: var(--space-sm); }
+  .p-space-md { padding: var(--space-md); }
+  .p-space-lg { padding: var(--space-lg); }
+  .p-space-xl { padding: var(--space-xl); }
+
+  .px-space-md { padding-left: var(--space-md); padding-right: var(--space-md); }
+  .py-space-xs { padding-top: var(--space-xs); padding-bottom: var(--space-xs); }
+
+  .m-space-md { margin: var(--space-md); }
+  .mb-sapce-md { margin: var(--space-md); }
+  .mt-space-xs { margin-top: var(--space-xs); }
+  .mb-space-xs { margin-bottom: var(--space-xs); }
+  .mb-space-sm { margin-bottom: var(--space-sm); }
+  .mb-space-xl { margin-bottom: var(--space-xl); }
+  .mb-space-2xl { margin-bottom: var(--space-2xl); }
+
+  /*============Gap============*/
+  .gap-space-xs { gap: var(--space-xs); }
+  .gap-space-sm { gap: var(--space-sm); }
+  .gap-space-md { gap: var(--space-md); }
+  .gap-space-lg { gap: var(--space-lg); }
+
+  /*============Animations============*/
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out forwards;
+  }
+
+  .animate-slideIn {
+    animation: slideIn 0.3s ease-out forwards;
+  }
+
+  /*============Focus Ring============*/
+  .focus-visible:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
-/* Toastify styles, now with more pop */
+/*============Global Styles============*/
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--card-foreground));
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+}
+
+/*============Component-Specific Styles============*/
+.sidebar {
+  background-color: hsl(var(--color-gray-900));
+  color: hsl(var(--accent-foreground));
+  border-right: 1px solid hsl(var(--border) / 0.5);
+  padding: var(--space-lg) var(--space-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-link {
+  color: hsl(var(--color-gray-300));
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  transition: color 0.3s ease;
+}
+
+.sidebar-link:hover {
+  color: hsl(var(--color-orange));
+}
+
+.sidebar-link.active {
+  color: hsl(var(--color-orange));
+  border-bottom: 2px solid hsl(var(--color-orange));
+  font-weight: 500;
+}
+
+/**
+ * Card component with 3D effect.
+ */
+.card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--color-orange) / 0.2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  perspective: 1000px; /* Adds depth for 3D effect */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-3d);
+  transform: translateY(-5px) rotateX(2deg) rotateY(2deg); /* Enhanced 3D lift and tilt */
+}
+
+/*============Table Styles============*/
+/* Sticky Header */
+.table-container {
+  max-height: 600px; /* Adjust as needed */
+  overflow-y: auto;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: hsl(var(--color-gray-900));
+  color: hsl(var(--color-orange));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Row Hover Effects */
+tbody tr {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  will-change: transform;
+}
+
+tbody tr:hover {
+  transform: scale(1.01);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+}
+
+/* Responsive Text & Layout */
+th {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+td {
+  font-size: var(--font-size-base);
+  transition: background-color 0.2s ease;
+}
+
+/* Mobile View Enhancements */
+@media (max-width: 768px) {
+  td::before {
+    content: attr(data-label);
+    display: inline-block;
+    width: 40%;
+    font-weight: 600;
+    color: hsl(var(--color-yellow));
+    margin-right: var(--space-sm);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  td {
+    display: flex;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+  }
+}
+
+/* Animation enhancements */
+@keyframes floatIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+tbody tr {
+  animation: floatIn 0.4s ease forwards;
+  animation-delay: calc(var(--row-index) * 0.05s);
+}
+
+/* Modern scrollbar for table */
+.table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: hsl(var(--color-gray-100));
+  border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--color-gray-300));
+  border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--color-gray-400));
+}
+
+/**
+ * Dialog/modal styling with elevated shadow.
+ */
+.dialog {
+  background-color: hsl(var(--surface));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.dialog header {
+  background-color: hsl(var(--color-gray-800));
+  color: hsl(var(--accent-foreground));
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+/**
+ * Button variants beyond Tailwind defaults.
+ */
+.btn-secondary {
+  background-color: hsl(var(--color-purple));
+  color: hsl(var(--accent-foreground));
+}
+
+.btn-secondary:hover {
+  background-color: hsl(var(--color-purple) / 90%);
+}
+
+.btn-tertiary {
+  background-color: hsl(var(--color-yellow));
+  color: hsl(var(--color-gray-900));
+}
+
+.btn-tertiary:hover {
+  background-color: hsl(var(--color-yellow) / 90%);
+}
+
+/*============Rounded Button Style============*/
+.rounded-button {
+  border-radius: 9999px;
+  padding-left: var(--space-lg);
+  padding-right: var(--space-lg);
+  min-width: 2.5rem;
+  height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*============Animation Keyframes============*/
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/*============React Toastify Overrides============*/
 .Toastify__toast--success {
-  background: hsl(var(--color-green)/0.3);
+  background: hsl(var(--color-green)/0.2);
   backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-green)/0.5);
+  border: 1px solid hsl(var(--color-green)/0.4);
   color: hsl(var(--color-green));
 }
 
 .Toastify__toast--error {
-  background: hsl(var(--color-red)/0.3);
+  background: hsl(var(--color-red)/0.2);
   backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-red)/0.5);
+  border: 1px solid hsl(var(--color-red)/0.4);
   color: hsl(var(--color-red));
 }
 
 .Toastify__toast--warning {
-  background: hsl(var(--color-yellow)/0.3);
+  background: hsl(var(--color-yellow)/0.2);
   backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-yellow)/0.5);
+  border: 1px solid hsl(var(--color-yellow)/0.4);
   color: hsl(var(--color-yellow));
 }
 
 .Toastify__toast--info {
-  background: hsl(var(--color-cyan)/0.3);
+  background: hsl(var(--color-cyan)/0.2);
   backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-cyan)/0.5);
+  border: 1px solid hsl(var(--color-cyan)/0.4);
   color: hsl(var(--color-cyan));
 }
 
-.Toastify__progress-bar {
-  background-color: hsl(var(--color-gray-dark)/0.2);
-}
-
 .Toastify__toast {
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(6px);
   font-size: var(--font-size-base);
 }
 
-.Toastify__close-button {
-  color: hsl(var(--foreground)/0.8) !important;
+.Toastify__progress-bar {
+  background-color: hsl(var(--color-gray-400)/0.2);
 }

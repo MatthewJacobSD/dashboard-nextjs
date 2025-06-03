@@ -1,45 +1,35 @@
-import type { Metadata } from "next";
-// Loading Geist font for that clean, modern vibe
-import { Geist } from "next/font/google";
-// Global styles for consistent theming
-import "./globals.css";
-// Sidebar component for nav, responsive af
-import { Sidebar } from "@/components/Sidebar";
-// Toaster for those slick notifications
-import { ToasterClient } from '@/components/ui/Toaster';
+import { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { ToasterClient } from '@/shared/lib/components/ToasterClient';
 
-// Setting up Geist font with Latin subset
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
 });
 
-// Metadata for SEO and browser display
 export const metadata: Metadata = {
-  title: "SanaSpace Dashboard",
-  description: "Admin dashboard for managing doctors, built to slay",
+  title: 'SanaSpace Dashboard',
+  description: 'Hospital Healthcare Dashboard Integration',
 };
 
-// Root layout for the app, sets up the main structure
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  // Render the app with a flexible, responsive layout
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} antialiased bg-gray-100 text-foreground`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
         <div className="flex min-h-screen">
-          {/* Sidebar, hidden on mobile for that clean mobile vibe */}
-          <Sidebar className="hidden sm:block" />
-          {/* Main content area, bright and responsive */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto bg-white/95 backdrop-blur-sm rounded-lg shadow-inner">
+          {/* Sidebar - Always visible on desktop, toggled on mobile */}
+          <aside className="w-64 flex-shrink-0 border-r border-border sm:flex hidden flex-col h-full fixed inset-y-0 left-0 z-30">
+            <Sidebar />
+          </aside>
+
+          {/* Main Content Area */}
+          <main className="flex-1 w-full p-space-md md:p-space-lg bg-surface rounded-l-radius-md sm:ml-64 shadow-sm">
             {children}
           </main>
-          {/* Toaster for notifications, always ready to pop */}
-          <ToasterClient />
         </div>
+        <ToasterClient />
       </body>
     </html>
   );
