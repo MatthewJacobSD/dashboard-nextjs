@@ -1,0 +1,180 @@
+
+ * BASE LAYER
+ * Fundamental styles that set up the document defaults
+ */
+
+ @layer base {
+  /* Document root styles */
+  html { 
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: clamp(14px, 2.5vw, 16px); /* Responsive base font size */
+    line-height: 1.5; /* Comfortable reading line height */
+  }
+
+  /* Body styles */
+  body {
+    background-color: theme('colors.background');
+    color: theme('colors.black');
+  }
+}
+
+/**
+ * THEME DEFINITIONS
+ * Custom design tokens and design system configuration
+ */
+@theme {
+  /* ----- COLOR PALETTE ----- */
+  /* Primary brand colors */
+  --colors-red: 0 100% 40.3%;
+  --colors-orange: 19 100% 39.4%;
+  --colors-orange-accent: 19 100% 50%;
+  --colors-yellow: 48 100% 48.3%;
+  --colors-green: 82 100% 31.4%;
+  --colors-green-accent: 82 100% 40%;
+  --colors-cyan: 201 100% 34.4%;
+  --colors-purple: 269 100% 34.4%;
+  --colors-purple-accent: 269 100% 50%;
+  
+  /* Neutral grayscale */
+  --colors-gray-900: 0 0% 17.7%; /* Darkest gray */
+  --colors-gray-700: 0 0% 30.6%; /* Dark gray */
+  --colors-gray-575: 0 0% 49.6%; /* Medium gray */
+  --colors-gray-350: 0 0% 72.6%; /* Light gray */
+  --colors-gray-300: 0 0% 84.9%; /* Lightest gray */
+  
+  /* Base colors */
+  --colors-white: 0 0% 100%;
+  --colors-black: 0 0% 0%;
+  
+  /* Semantic colors */
+  --colors-background: 0 0% 84.9%; /* Page background */
+  --colors-card: 0 0% 100%;       /* Card surfaces */
+  --colors-border: 0 0% 72.6%;    /* Borders and dividers */
+
+  /* ----- SPACING SYSTEM ----- */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-m: 1rem;       /* 16px */
+  --spacing-l: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+
+  /* ----- BORDER RADIUS ----- */
+  --border-radius-sm: 0.25rem;  /* Small radius */
+  --border-radius-m: 0.5rem;    /* Medium radius */
+  --border-radius-lg: 1rem;     /* Large radius */
+  --border-radius-xl: 2rem;     /* Extra large radius */
+
+  /* ----- TYPOGRAPHY ----- */
+  --font-size-base: clamp(14px, 2.5vw, 16px);        /* Base responsive text */
+  --font-size-subheading: clamp(16px, 3vw, 20px);    /* Subheading text */
+  --font-size-heading: clamp(20px, 4vw, 24px);       /* Heading text */
+  --font-size-muted: 0.875rem;                       /* Secondary/small text */
+
+  /* ----- ELEVATION (SHADOWS) ----- */
+  --box-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);             /* Small shadow */
+  --box-shadow-md: 0 4px 6px 0 rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.06); /* Medium shadow */
+  --box-shadow-xl: 0 10px 15px 0 rgb(0 0 0 / 0.15), 0 4px 6px 0 rgb(0 0 0 / 0.1); /* Large shadow */
+
+  /* ----- ANIMATIONS ----- */
+  --animation-fade-in: fade-in 0.3s ease-in-out;     /* Fade in effect */
+  --animation-slide-in: slide-in 0.3s ease-in-out;   /* Slide up effect */
+}
+
+/**
+ * ANIMATION KEYFRAMES
+ * Definitions for custom animations
+ */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/**
+ * COMPONENTS LAYER
+ * Reusable component styles built with utility classes
+ */
+@layer components {
+  /* ----- SIDEBAR COMPONENT ----- */
+  .sidebar {
+    @apply bg-gray-900 text-orange-500 border-r border-border shadow-sm p-6 px-4;
+  }
+
+  .sidebar-link {
+    @apply block py-2 px-4 text-orange-500 transition-all duration-200 font-normal;
+  }
+
+  .sidebar-link:hover,
+  .sidebar-link:focus {
+    @apply bg-gray-700 text-orange-accent scale-102;
+  }
+
+  .sidebar-link.active {
+    @apply text-orange-accent font-bold scale-105;
+  }
+
+  /* ----- CARD COMPONENT ----- */
+  .card {
+    @apply bg-card rounded-lg shadow-sm p-4 transition-transform duration-300 ease-in-out;
+  }
+
+  .card:hover {
+    @apply -translate-y-1 rotate-x-2 -rotate-y-2 shadow-xl; /* 3D hover effect */
+  }
+
+  /* ----- TABLE COMPONENT ----- */
+  .table {
+    @apply w-full border-collapse bg-gray-300 rounded-md overflow-hidden;
+  }
+
+  .table thead {
+    @apply bg-gray-700;
+  }
+
+  .table th {
+    @apply text-orange-500 font-bold p-2 text-left;
+  }
+
+  .table td {
+    @apply text-black bg-gray-300 p-2;
+  }
+
+  .table tbody tr:hover {
+    @apply bg-gray-350;
+  }
+
+  /* ----- DIALOG COMPONENT ----- */
+  .dialog {
+    @apply bg-card rounded-md shadow-md p-8 max-w-md mx-auto;
+  }
+
+  /* ----- BUTTON COMPONENTS ----- */
+  .btn {
+    @apply inline-block px-4 py-2 font-bold rounded-md cursor-pointer transition-all duration-200;
+  }
+
+  /* Primary button variant */
+  .btn-primary {
+    @apply bg-purple-500 text-white;
+  }
+
+  .btn-primary:hover {
+    @apply bg-purple-accent -translate-y-0.5 shadow-sm;
+  }
+
+  /* Secondary button variant */
+  .btn-secondary {
+    @apply bg-green-500 text-white;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-green-accent -translate-y-0.5 shadow-sm;
+  }
+}
+*/

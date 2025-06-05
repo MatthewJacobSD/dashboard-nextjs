@@ -1,302 +1,348 @@
-'use client';
+"use client"
 
-// React hooks for state and effects, keeping it snappy
-import { useState, useEffect } from 'react';
-// Toastify for those poppin' notifications
-import { toast } from 'react-toastify';
-// Zod for bulletproof validation
-import { z } from 'zod';
-// Doctor schemas and types for safety
-import { Doctor, createDoctorSchema, updateDoctorSchema, DoctorCreateInput, DoctorUpdateInput } from '@/lib/zod';
-// Server actions for CRUD vibes
-import { fetchDoctors, deleteDoctor, createDoctor, updateDoctor } from './actions';
-// Components for table, cards, modal, and forms
-import { Table } from '@/features/doctor/Table';
-import { Cards } from '@/features/doctor/Cards';
-import { Modal } from '@/components/ui/Modal';
-import { CreateDoctorForm } from '@/features/doctor/Form/Create';
-import { UpdateDoctorForm } from '@/features/doctor/Form/Update';
-import Loading from './loading';
+import { cn } from "@/shared/utils/cn"
+import { useState, useMemo, useCallback } from "react"
+import { Plus, Users } from "lucide-react"
+import { PageHeader } from "@/components/layout/PageHeader"
+import { DataDisplay, type DataDisplayField } from "@/components/state/DataDisplay"
+import { CrudForm, type FieldConfig } from "@/components/form/CrudForm"
+import { ViewToggle } from "@/components/state/ViewToggle"
+import { SearchFilter } from "@/components/ui/SearchFilter"
+import { Button } from "@/components/ui/Button"
+import { Dialog } from "@/components/ui/Dialog"
+import { Alert } from "@/components/ui/Alert"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
+import { ErrorFallback } from "@/components/layout/FallBackError"
+import { useDoctors } from "@/shared/hooks/useDoctors"
+import { Doctor } from "@/shared/lib/zod/doctor"
+import { Experience, Specialization } from "@/shared/lib/zod/common"
+import { DataDisplayView } from "@/components/state/DataDisplay"
+import { CreateDoctor } from "@/shared/lib/zod/doctor"
 
-// Main DoctorsPage component, the hub for doctor management
 export default function DoctorsPage() {
-  // State for doctors, loading, errors, and UI controls
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [size] = useState(10);
-  const [totalPages, setTotalPages] = useState(0);
-  const [view, setView] = useState<'table' | 'cards'>('table');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null);
+  // State management
+  const [view, setView] = useState<DataDisplayView>("cards")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showEditForm, setShowEditForm] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null)
 
-  // Fetch doctors on page/size change
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetchDoctors(page, size);
-        setDoctors(response.data.content);
-        setTotalPages(response.data.totalPages);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message :'Failed to load doctors');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [page, size]);
+  // Custom hook for doctor operations
+  const {
+    doctors,
+    isLoading,
+    error,
+    fieldErrors,
+    page,
+    size,
+    setPage,
+    totPages,
+    selectedEntity,
+    setSelectedEntity,
+    createFormAction,
+    updateFormAction,
+    handleDelete,
+  } = useDoctors({
+    page: 0, // 0-based for backend
+    size: 10,
+  })
 
-  // Open edit modal with selected doctor
-  const handleEdit = (doctor: Doctor) => {
-    setSelectedDoctor(doctor);
-    setIsEditModalOpen(true);
-  };
+  // Filter doctors based on search query
+  const filteredDoctors = useMemo(() => {
+    if (!searchQuery.trim()) return doctors
 
-  // Open delete confirmation modal
-  const handleDeleteRequest = (doctor: Doctor) => {
-    setDoctorToDelete(doctor);
-    setIsDeleteModalOpen(true);
-  };
+    const query = searchQuery.toLowerCase()
+    return doctors.filter(
+      (doctor) =>
+        doctor.firstName.toLowerCase().includes(query) ||
+        doctor.lastName.toLowerCase().includes(query) ||
+        doctor.email.toLowerCase().includes(query) ||
+        doctor.specialization.toLowerCase().includes(query) ||
+        doctor.experience.toLowerCase().includes(query)
+    )
+  }, [doctors, searchQuery])
 
-  // Confirm and delete doctor
-  const handleDeleteConfirm = async () => {
-    if (!doctorToDelete) return;
+  // Form field configurations
+  const formFields: FieldConfig<CreateDoctor>[] = [
+    {
+      name: "firstName",
+      label: "First Name",
+      type: "text",
+      required: true,
+      placeholder: "Enter first name",
+    },
+    {
+      name: "lastName",
+      label: "Last Name",
+      type: "text",
+      required: true,
+      placeholder: "Enter last name",
+    },
+    {
+      name: "email",
+      label: "Email",
+      type: "email",
+      required: true,
+      placeholder: "doctor@example.com",
+    },
+    {
+      name: "address",
+      label: "Address",
+      type: "text",
+      required: true,
+      placeholder: "Enter full address",
+    },
+    {
+      name: "specialization",
+      label: "Specialization",
+      type: "select",
+      options: Object.values(Specialization),
+      required: true,
+    },
+    {
+      name: "experience",
+      label: "Experience Level",
+      type: "select",
+      options: Object.values(Experience),
+      required: true,
+    },
+  ]
+
+  // Data display field configurations
+  const displayFields: DataDisplayField<Doctor>[] = [
+    {
+      key: "firstName",
+      label: "First Name",
+    },
+    {
+      key: "lastName",
+      label: "Last Name",
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (value) => (
+        <a href={`mailto:${value}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+          {String(value)}
+        </a>
+      ),
+    },
+    {
+      key: "specialization",
+      label: "Specialization",
+      render: (value) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          {String(value)}
+        </span>
+      ),
+    },
+    {
+      key: "experience",
+      label: "Experience",
+      render: (value) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          {String(value)}
+        </span>
+      ),
+    },
+  ]
+
+  // Handle sort change
+  const handleSortChange = useCallback(
+    (sort: { key: keyof Doctor; direction: 'asc' | 'desc' }) => {
+      console.log(`Sorting by ${sort.key} (${sort.direction})`);
+      const sortedDoctors = [...doctors].sort((a, b) => {
+        const aValue = a[sort.key] as string;
+        const bValue = b[sort.key] as string;
+        return sort.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      });
+      setSelectedEntity(null);
+    },
+    [doctors, setSelectedEntity]
+  )
+
+  // Event handlers
+  const handleEdit = useCallback(
+    (doctor: Doctor) => {
+      setSelectedEntity(doctor)
+      setShowEditForm(true)
+    },
+    [setSelectedEntity]
+  )
+
+  const handleDeleteClick = useCallback((doctor: Doctor) => {
+    setDoctorToDelete(doctor)
+    setShowDeleteDialog(true)
+  }, [])
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!doctorToDelete) return
+
     try {
-      await deleteDoctor(doctorToDelete.id);
-      setDoctors((prev) => prev.filter((d) => d.id !== doctorToDelete.id));
-      toast.success('Doctor deleted successfully');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete doctor');
-    } finally {
-      setIsDeleteModalOpen(false);
-      setDoctorToDelete(null);
-    }
-  };
-
-  // Handle adding new doctor
-  const handleAddSubmit = async (data: DoctorCreateInput) => {
-    try {
-      const validated = createDoctorSchema.parse(data);
-      const response = await createDoctor(validated);
-      setDoctors((prev) => [...prev, response.data]);
-      toast.success('Doctor added successfully');
-      setIsAddModalOpen(false);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        throw err.errors.reduce((acc, e) => ({
-          ...acc,
-          [e.path[0] as keyof DoctorCreateInput]: e.message,
-        }), {});
+      const result = await handleDelete(doctorToDelete.id)
+      if (result.success) {
+        setShowDeleteDialog(false)
+        setDoctorToDelete(null)
       }
-      toast.error('Failed to save doctor');
+    } catch (error) {
+      console.error("Delete failed:", error)
     }
-  };
+  }, [doctorToDelete, handleDelete])
 
-  // Handle updating existing doctor
-  const handleEditSubmit = async (data: DoctorUpdateInput) => {
-    if (!selectedDoctor) return;
-    if (data.id !== selectedDoctor.id) {
-      throw new Error('Doctor ID mismatch');
-    }
-    try {
-      const validated = updateDoctorSchema.parse(data);
-      const response = await updateDoctor(selectedDoctor.id, validated);
-      setDoctors((prev) =>
-        prev.map((d) => (d.id === selectedDoctor.id ? response.data : d))
-      );
-      toast.success('Doctor updated successfully');
-      setIsEditModalOpen(false);
-      setSelectedDoctor(null);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        throw err.errors.reduce((acc, e) => ({
-          ...acc,
-          [e.path[0] as keyof DoctorUpdateInput]: e.message,
-        }), {});
-      }
-      toast.error('Failed to save doctor');
-    }
-  };
+  const handleSearchClear = useCallback(() => {
+    setSearchQuery("")
+  }, [])
 
-  // Render the doctors management UI
-  return (
-    <div className="container mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6 max-w-7xl">
-      <div className="bg-white/95 rounded-xl p-4 sm:p-6 lg:p-8 shadow-sm border border-gray-200/50">
-        {/* Header section, bold and vibrant */}
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-yellow-500 mb-2">Doctors Management</h1>
-          <p className="text-gray-600 text-sm sm:text-base">View and manage all doctor records in your system</p>
-        </div>
+  const handleFormClose = useCallback(() => {
+    setShowCreateForm(false)
+    setShowEditForm(false)
+    setSelectedEntity(null)
+  }, [setSelectedEntity])
 
-        {/* Control bar for view toggle and actions */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-cyan-500">Doctor Records</h2>
-            <p className="text-sm text-gray-600">
-              {doctors.length} {doctors.length === 1 ? 'record' : 'records'} found
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setView('table')}
-              className={`px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
-                view === 'table'
-                  ? 'bg-purple-500 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-              } hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-purple-500`}
-            >
-              Table View
-            </button>
-            <button
-              onClick={() => setView('cards')}
-              className={`px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
-                view === 'cards'
-                  ? 'bg-purple-500 text-white shadow-md'
-                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-              } hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-purple-500`}
-            >
-              Cards View
-            </button>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              Add New Doctor
-            </button>
-          </div>
-        </div>
-
-        {/* Error display, clean and noticeable */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-500 text-sm sm:text-base">{error}</p>
-          </div>
-        )}
-
-        {/* Add doctor modal, sleek and vibrant */}
-        <Modal
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          title="Add New Doctor"
-        >
-          <CreateDoctorForm
-            onSubmit={handleAddSubmit}
-            onCancel={() => setIsAddModalOpen(false)}
-          />
-        </Modal>
-
-        {/* Edit doctor modal, tailored to the doctor */}
-        {selectedDoctor && (
-          <Modal
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              setSelectedDoctor(null);
-            }}
-            title={`Edit Doctor: ${selectedDoctor.firstName} ${selectedDoctor.lastName || ''}`}
-          >
-            <UpdateDoctorForm
-              initialValues={{
-                id: selectedDoctor.id,
-                firstName: selectedDoctor.firstName,
-                lastName: selectedDoctor.lastName || '',
-                address: selectedDoctor.address || '',
-                email: selectedDoctor.email,
-                specialization: selectedDoctor.specialization || 'General',
-                experience: selectedDoctor.experience || 'Novice',
-              }}
-              onSubmit={handleEditSubmit}
-              onCancel={() => {
-                setIsEditModalOpen(false);
-                setSelectedDoctor(null);
-              }}
-            />
-          </Modal>
-        )}
-
-        {/* Delete confirmation modal, serious vibes */}
-        {doctorToDelete && (
-          <Modal
-            isOpen={isDeleteModalOpen}
-            onClose={() => {
-              setIsDeleteModalOpen(false);
-              setDoctorToDelete(null);
-            }}
-            title="Confirm Deletion"
-          >
-            <div className="space-y-4">
-              <p className="text-gray-600 text-sm sm:text-base">
-                Are you sure you want to permanently delete{' '}
-                <span className="font-semibold text-gray-800">
-                  {doctorToDelete.firstName} {doctorToDelete.lastName || ''}
-                </span>
-                ? This action cannot be undone.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setIsDeleteModalOpen(false);
-                    setDoctorToDelete(null);
-                  }}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteConfirm}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  Confirm Delete
-                </button>
-              </div>
-            </div>
-          </Modal>
-        )}
-
-        {/* Content display, table or cards */}
-        {isLoading ? (
-          <Loading view={view} />
-        ) : (
-          <>
-            {view === 'table' ? (
-              <Table data={doctors} onEdit={handleEdit} onDelete={handleDeleteRequest} />
-            ) : (
-              <Cards data={doctors} onEdit={handleEdit} onDelete={handleDeleteRequest} />
-            )}
-
-            {/* Pagination, clean and functional */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="text-sm sm:text-base text-gray-600">
-                  Showing page {page + 1} of {totalPages}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => p - 1)}
-                    className="px-4 py-2 bg-gray-200 disabled:opacity-50 text-gray-800 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 hover:bg-gray-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    disabled={page >= totalPages - 1}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="px-4 py-2 bg-purple-500 disabled:opacity-50 hover:bg-purple-600 text-white rounded-lg text-sm sm:text-base font-medium transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+  // Error boundary fallback
+  if (error && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
+        <ErrorFallback />
       </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6 space-y-6">
+      {/* Page Header */}
+      <PageHeader
+        title="Doctor Management"
+        description="Manage doctor profiles, specializations, and contact information"
+        className="mb-6"
+      >
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+          <SearchFilter
+            query={searchQuery}
+            onSearch={setSearchQuery}
+            onClear={handleSearchClear}
+            placeholder="Search doctors by name, email, or specialization..."
+          />
+          <ViewToggle view={view} setView={setView} />
+          <Button
+            onClick={() => setShowCreateForm(true)}
+            className={cn(
+              'bg-blue-600 text-white hover:bg-blue-700',
+              'flex items-center gap-2 px-4 py-2 rounded-md',
+              'transition-all duration-200 hover:scale-105 shadow-sm'
+            )}
+            disabled={isLoading}
+          >
+            <Plus className="h-4 w-4" />
+            Add Doctor
+          </Button>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+          <Users className="h-4 w-4" />
+          <span>{filteredDoctors.length} doctors found</span>
+        </div>
+      </PageHeader>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert
+          variant="error"
+          message={error}
+          dismissible
+          onDismiss={() => setSelectedEntity(null)}
+          className="mb-6"
+          fullWidth
+        />
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center py-12">
+          <LoadingSpinner size="lg" variant="primary" />
+        </div>
+      )}
+
+      {/* Data Display */}
+      {!isLoading && (
+        <DataDisplay
+          data={filteredDoctors}
+          isLoading={isLoading}
+          onEdit={handleEdit}
+          onDelete={handleDeleteClick}
+          view={view}
+          fields={displayFields}
+          emptyMessage={
+            searchQuery
+              ? `No doctors found matching "${searchQuery}"`
+              : "No doctors found. Add your first doctor to get started."
+          }
+          page={page}
+          size={size}
+          totalPages={totPages}
+          onPageChange={(newPage) => setPage(newPage, size)}
+          onSortChange={handleSortChange}
+        />
+      )}
+
+      {/* Create Form Dialog */}
+      <Dialog open={showCreateForm} onClose={handleFormClose} title="Add New Doctor" className="max-w-2xl">
+        <CrudForm
+          formAction={createFormAction}
+          fields={formFields}
+          onCancel={handleFormClose}
+          isOpen={showCreateForm}
+          title="Add New Doctor"
+          submitText="Create Doctor"
+          fieldErrors={fieldErrors}
+        />
+      </Dialog>
+
+      {/* Edit Form Dialog */}
+      <Dialog
+        open={showEditForm}
+        onClose={handleFormClose}
+        title={`Edit Doctor: ${selectedEntity?.firstName} ${selectedEntity?.lastName}`}
+        className="max-w-2xl"
+      >
+        <CrudForm
+          initialValues={selectedEntity || {}}
+          formAction={updateFormAction}
+          fields={formFields}
+          onCancel={handleFormClose}
+          isOpen={showEditForm}
+          title="Edit Doctor"
+          submitText="Update Doctor"
+          fieldErrors={fieldErrors}
+        />
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)} title="Confirm Deletion">
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Are you sure you want to delete{" "}
+            <span className="font-semibold text-gray-900">
+              Dr. {doctorToDelete?.firstName} {doctorToDelete?.lastName}
+            </span>
+            ? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              Delete Doctor
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </div>
-  );
+  )
 }

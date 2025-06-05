@@ -1,92 +1,202 @@
 @import "tailwindcss";
 
+/* BASE LAYER
+ * Fundamental styles that set up the document defaults
+ */
 :root {
-  --background: #f1f5f9; /* Light gray for a fresh look */
-  --foreground: #1f2937; /* Darker gray for contrast */
-  /* Fluid typography for all screen sizes */
+  /* Theme color palette */
+  --colors-red: hsl(0, 100%, 40.3%);
+  --colors-orange: hsl(19, 100%, 39.4%);
+  --colors-orange-accent: hsl(19, 100%, 50%);
+  --colors-yellow: hsl(48, 100%, 48.3%);
+  --colors-green: hsl(82, 100%, 31.4%);
+  --colors-green-accent: hsl(82, 100%, 40%);
+  --colors-cyan: hsl(201, 100%, 34.4%);
+  --colors-purple: hsl(269, 100%, 34.4%);
+  --colors-purple-accent: hsl(269, 100%, 50%);
+  
+  /* Neutral grayscale */
+  --colors-gray-900: hsl(0, 0%, 17.7%);
+  --colors-gray-700: hsl(0, 0%, 30.6%);
+  --colors-gray-575: hsl(0, 0%, 49.6%);
+  --colors-gray-350: hsl(0, 0%, 72.6%);
+  --colors-gray-300: hsl(0, 0%, 84.9%);
+  
+  /* Base colors */
+  --colors-white: hsl(0, 0%, 100%);
+  --colors-black: hsl(0, 0%, 0%);
+  
+  /* Semantic colors */
+  --colors-background: hsl(0, 0%, 84.9%);
+  --colors-card: hsl(0, 0%, 100%);
+  --colors-border: hsl(0, 0%, 72.6%);
+
+  /* Spacing system */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-m: 1rem;
+  --spacing-l: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Border radius */
+  --border-radius-sm: 0.25rem;
+  --border-radius-m: 0.5rem;
+  --border-radius-lg: 1rem;
+  --border-radius-xl: 2rem;
+
+  /* Typography */
   --font-size-base: clamp(14px, 2.5vw, 16px);
+  --font-size-subheading: clamp(16px, 3vw, 20px);
   --font-size-heading: clamp(20px, 4vw, 24px);
-  /* Accent Colors in HSL, cranked up for vibrancy */
-  --color-orange: 28 100% 60%; /* Brighter orange */
-  --color-purple: 280 90% 70%; /* Lighter, vibrant purple */
-  --color-yellow: 45 80% 60%; /* Brighter yellow */
-  --color-green: 135 70% 55%; /* Popping green */
-  --color-cyan: 185 80% 55%; /* Vivid cyan */
-  --color-gray-dark: 0 0% 15%; /* Lighter dark gray */
-  --color-red: 0 85% 65%; /* Brighter red for errors */
+  --font-size-muted: 0.875rem;
+
+  /* Elevation (shadows) */
+  --box-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --box-shadow-md: 0 4px 6px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --box-shadow-xl: 0 10px 15px 0 rgba(0, 0, 0, 0.15), 0 4px 6px 0 rgba(0, 0, 0, 0.1);
+
+  /* Animations */
+  --animation-fade-in: fade-in 0.3s ease-in-out;
+  --animation-slide-in: slide-in 0.3s ease-in-out;
 }
 
+/* Document root styles */
+html {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+}
+
+/* Body styles */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-size: var(--font-size-base);
+  background-color: var(--colors-background);
+  color: var(--colors-black);
 }
 
-/* Custom utility classes for colors, Tailwind v4 style */
-@layer utilities {
-  .bg-orange { background-color: hsl(var(--color-orange)); }
-  .text-orange { color: hsl(var(--color-orange)); }
-  .border-orange { border-color: hsl(var(--color-orange)); }
-  .bg-purple { background-color: hsl(var(--color-purple)); }
-  .text-purple { color: hsl(var(--color-purple)); }
-  .border-purple { border-color: hsl(var(--color-purple)); }
-  .bg-yellow { background-color: hsl(var(--color-yellow)); }
-  .text-yellow { color: hsl(var(--color-yellow)); }
-  .border-yellow { border-color: hsl(var(--color-yellow)); }
-  .bg-green { background-color: hsl(var(--color-green)); }
-  .text-green { color: hsl(var(--color-green)); }
-  .border-green { border-color: hsl(var(--color-green)); }
-  .bg-cyan { background-color: hsl(var(--color-cyan)); }
-  .text-cyan { color: hsl(var(--color-cyan)); }
-  .border-cyan { border-color: hsl(var(--color-cyan)); }
-  .bg-gray-dark { background-color: hsl(var(--color-gray-dark)); }
-  .text-gray-dark { color: hsl(var(--color-gray-dark)); }
-  .border-gray-dark { border-color: hsl(var(--color-gray-dark)); }
-  .bg-red { background-color: hsl(var(--color-red)); }
-  .text-red { color: hsl(var(--color-red)); }
-  .border-red { border-color: hsl(var(--color-red)); }
+/* Animation keyframes */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Toastify styles, now with more pop */
-.Toastify__toast--success {
-  background: hsl(var(--color-green)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-green)/0.5);
-  color: hsl(var(--color-green));
+@keyframes slide-in {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.Toastify__toast--error {
-  background: hsl(var(--color-red)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-red)/0.5);
-  color: hsl(var(--color-red));
+/* Components */
+.sidebar {
+  background-color: var(--colors-gray-900);
+  color: var(--colors-orange);
+  border-right: 1px solid var(--colors-border);
+  box-shadow: var(--box-shadow-sm);
+  padding: var(--spacing-l);
+  padding-left: var(--spacing-m);
+  padding-right: var(--spacing-m);
 }
 
-.Toastify__toast--warning {
-  background: hsl(var(--color-yellow)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-yellow)/0.5);
-  color: hsl(var(--color-yellow));
+.sidebar-link {
+  display: block;
+  padding: var(--spacing-sm) var(--spacing-m);
+  color: var(--colors-orange);
+  transition: all 200ms;
+  font-weight: normal;
 }
 
-.Toastify__toast--info {
-  background: hsl(var(--color-cyan)/0.3);
-  backdrop-filter: blur(6px);
-  border: 1px solid hsl(var(--color-cyan)/0.5);
-  color: hsl(var(--color-cyan));
+.sidebar-link:hover,
+.sidebar-link:focus {
+  background-color: var(--colors-gray-700);
+  color: var(--colors-orange-accent);
+  transform: scale(1.02);
 }
 
-.Toastify__progress-bar {
-  background-color: hsl(var(--color-gray-dark)/0.2);
+.sidebar-link.active {
+  color: var(--colors-orange-accent);
+  font-weight: bold;
+  transform: scale(1.05);
 }
 
-.Toastify__toast {
-  border-radius: 0.75rem;
-  backdrop-filter: blur(6px);
-  font-size: var(--font-size-base);
+.card {
+  background-color: var(--colors-card);
+  border-radius: var(--border-radius-m);
+  box-shadow: var(--box-shadow-sm);
+  padding: var(--spacing-m);
+  transition: transform 300ms ease-in-out;
 }
 
-.Toastify__close-button {
-  color: hsl(var(--foreground)/0.8) !important;
+.card:hover {
+  transform: translateY(-4px) rotateX(2deg) rotateY(-2deg);
+  box-shadow: var(--box-shadow-xl);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--colors-gray-300);
+  border-radius: var(--border-radius-m);
+  overflow: hidden;
+}
+
+.table thead {
+  background-color: var(--colors-gray-700);
+}
+
+.table th {
+  color: var(--colors-orange);
+  font-weight: bold;
+  padding: var(--spacing-sm);
+  text-align: left;
+}
+
+.table td {
+  color: var(--colors-black);
+  background-color: var(--colors-gray-300);
+  padding: var(--spacing-sm);
+}
+
+.table tbody tr:hover {
+  background-color: var(--colors-gray-350);
+}
+
+.dialog {
+  background-color: var(--colors-card);
+  border-radius: var(--border-radius-m);
+  box-shadow: var(--box-shadow-md);
+  padding: var(--spacing-xl);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.btn {
+  display: inline-block;
+  padding: var(--spacing-sm) var(--spacing-m);
+  font-weight: bold;
+  border-radius: var(--border-radius-m);
+  cursor: pointer;
+  transition: all 200ms;
+}
+
+.btn-primary {
+  background-color: var(--colors-purple);
+  color: var(--colors-white);
+}
+
+.btn-primary:hover {
+  background-color: var(--colors-purple-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--box-shadow-sm);
+}
+
+.btn-secondary {
+  background-color: var(--colors-green);
+  color: var(--colors-white);
+}
+
+.btn-secondary:hover {
+  background-color: var(--colors-green-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--box-shadow-sm);
 }

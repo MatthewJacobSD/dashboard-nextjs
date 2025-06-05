@@ -1,45 +1,44 @@
-import type { Metadata } from "next";
-// Loading Geist font for that clean, modern vibe
-import { Geist } from "next/font/google";
-// Global styles for consistent theming
-import "./globals.css";
-// Sidebar component for nav, responsive af
-import { Sidebar } from "@/components/Sidebar";
-// Toaster for those slick notifications
-import { ToasterClient } from '@/components/ui/Toaster';
+/*============Imports============*/
+import { Sidebar } from '@/components/layout/Sidebar';
+import { ToasterClient } from '@/shared/lib/components/ToasterClient';
+import './globals.css';
 
-// Setting up Geist font with Latin subset
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-// Metadata for SEO and browser display
-export const metadata: Metadata = {
-  title: "SanaSpace Dashboard",
-  description: "Admin dashboard for managing doctors, built to slay",
+/*============Metadata============*/
+export const metadata = {
+  title: 'SanaSpace Dashboard',
+  description: 'Admin dashboard for managing doctors, built to slay',
+  icons: {
+    icon: '/favicon.ico', // Add your favicon path if available
+  },
+  openGraph: {
+    title: 'SanaSpace Dashboard',
+    description: 'Admin dashboard for managing doctors, built to slay',
+    url: 'https://your-site-url.com', // Replace with your site URL
+    siteName: 'SanaSpace',
+    type: 'website',
+  },
 };
 
-// Root layout for the app, sets up the main structure
+/*============RootLayout Component============*/
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  // Render the app with a flexible, responsive layout
+}) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} antialiased bg-gray-100 text-foreground`}>
+    <html lang="en" dir="ltr">
+      <body className="bg-background text-foreground font-sans">
         <div className="flex min-h-screen">
-          {/* Sidebar, hidden on mobile for that clean mobile vibe */}
-          <Sidebar className="hidden sm:block" />
-          {/* Main content area, bright and responsive */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto bg-white/95 backdrop-blur-sm rounded-lg shadow-inner">
+          <Sidebar />
+          <main 
+            className="flex-1 transition-all duration-300 ease-in-out" 
+            id="main-content"
+            role="main"
+          >
             {children}
           </main>
-          {/* Toaster for notifications, always ready to pop */}
-          <ToasterClient />
         </div>
+        <ToasterClient />
       </body>
     </html>
   );
