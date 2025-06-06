@@ -5,6 +5,8 @@ export * from './crud/service.types'
 
 export * from './data-display/display.types'
 
+export * from './hooks/useEntity.types'
+
 export * from './models/entity.types'
 
 export * from './pagination/pagination.types'
@@ -12,3 +14,5 @@ export * from './pagination/pagination.types'
 export * from './stats/stats.types'
 
 export * from './utils/utility.types'
+
+export * from './toast.types'

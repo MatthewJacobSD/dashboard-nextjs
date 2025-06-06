@@ -1,0 +1,112 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "prettier"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint", "react", "react-hooks", "import"],
+  "settings": {
+    "react": {
+      "version": "detect"
+    },
+    "import/resolver": {
+      "typescript": {}
+    }
+  },
+  "rules": {
+    "react/react-in-jsx-scope": 0,
+    "react/prop-types": 0,
+    "react/jsx-key": 2,
+    "react/display-name": 0,
+    "react-hooks/rules-of-hooks": 2,
+    "react-hooks/exhaustive-deps": 1,
+
+    "@typescript-eslint/no-explicit-any": 1,
+    "@typescript-eslint/no-unused-vars": [
+      2,
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/no-empty-function": 0,
+
+    "prefer-const": 2,
+    "no-console": 1,
+    "no-debugger": 2,
+    "no-var": 2,
+    "prefer-template": 2,
+    "template-curly-spacing": 2,
+
+    "sort-imports": [
+      2,
+      {
+        "ignoreCase": true,
+        "memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
+      }
+    ],
+
+    "import/no-relative-parent-imports": ["warn"],
+
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "zones": [
+          {
+            "target": "./app",
+            "from": "./app",
+            "message": "You cannot import from app into app (avoid circular dependencies)."
+          },
+          {
+            "target": "./app",
+            "from": "./components",
+            "message": "Components should be independent - use dependency injection instead"
+          },
+          {
+            "target": "./app",
+            "from": "./actions",
+            "message": "App components should not import directly from actions folder."
+          },
+          {
+            "target": "./components",
+            "from": "./app",
+            "message": "Components must stay reusable; avoid importing from app into components."
+          },
+          {
+            "target": "./components",
+            "from": "./actions",
+            "message": "Components should not import directly from actions."
+          },
+          {
+            "target": "./actions",
+            "from": "./app",
+            "message": "Actions are low-level utilities and should not depend on app code."
+          },
+          {
+            "target": "./actions",
+            "from": "./components",
+            "message": "Actions should not import from UI components."
+          },
+          {
+            "target": "./shared",
+            "from": "./app",
+            "message": "Shared code must remain framework-agnostic"
+          }
+        ]
+      }
+    ]
+  }
+}
