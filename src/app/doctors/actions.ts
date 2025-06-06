@@ -196,9 +196,9 @@ export async function fetchDoctors(
     
     /* ===== Validate Pagination ===== */
     const validateParams = z.object({
-      page: z.number().min(0),
+      page: z.number().min(1),
       limit: z.number().min(1)
-    }).safeParse({ page, limit });
+    }).safeParse({ page: page + 1, limit });
     
     if (!validateParams.success) {
       const errorMsg = `${EMOJI.ERROR} Validation failed: ${validateParams.error.errors.map(e => e.message).join(', ')}`;
