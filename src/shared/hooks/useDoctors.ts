@@ -10,33 +10,39 @@ import {
   useMemo,
 } from "react";
 import { toast } from "react-toastify";
+
+// Zod Schemas
 import {
   createDoctorSchema,
   Doctor,
   updateDoctorSchema,
 } from "@/shared/lib/zod/doctor";
+
+// API Actions
 import {
   createDoctor,
   deleteDoctor,
   fetchDoctors,
   updateDoctor,
 } from "@/app/doctors/actions";
-import { z } from "zod";
-import { debounce } from "../utils/debounce";
 
-/* ====== Constants ====== */
+// Utils
+import { debounce } from "../utils/debounce";
+import z from "zod";
+
+/* ===== Constants ===== */
 const EMOJI = {
-  SUCCESS: '🔥',
-  ERROR: '♨️',
+  SUCCESS: "🔥",
+  ERROR: "♨️",
   OPERATION: {
-    CREATE: '🆕',
-    UPDATE: '♻️',
-    DELETE: '🗑️',
-    FETCH: '🔍'
-  }
+    CREATE: "🆕",
+    UPDATE: "♻️",
+    DELETE: "🗑️",
+    FETCH: "🔍",
+  },
 } as const;
 
-/* ====== Types ====== */
+/* ===== Types ===== */
 interface UseDoctorsProps {
   initialData?: Doctor[];
   page?: number;
@@ -63,6 +69,7 @@ type OptimisticUpdate =
   | { type: "delete"; id: string };
 
 /* ===== Utility Functions ===== */
+
 /**
  * Handles errors from actions and returns standardized error state
  */
@@ -86,9 +93,11 @@ function handleActionError(error: unknown | z.ZodError): {
       ),
     };
   }
+
   const errorMsg = `${EMOJI.ERROR} ${error instanceof Error ? error.message : "Operation failed"}`;
   console.error(errorMsg);
   toast.error(errorMsg);
+
   return { success: false, error: errorMsg };
 }
 
@@ -103,26 +112,34 @@ function optimisticDoctorUpdate(
     case "add":
       console.log(`${EMOJI.OPERATION.CREATE} Optimistically adding doctor`);
       return [...doctors, update.doctor];
+
     case "update":
-      console.log(`${EMOJI.OPERATION.UPDATE} Optimistically updating doctor ${update.doctor.id}`);
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Optimistically updating doctor ${update.doctor.id}`
+      );
       return doctors.map((doctor) =>
         doctor.id === update.doctor.id ? update.doctor : doctor
       );
+
     case "delete":
-      console.log(`${EMOJI.OPERATION.DELETE} Optimistically deleting doctor ${update.id}`);
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Optimistically deleting doctor ${update.id}`
+      );
       return doctors.filter((doctor) => doctor.id !== update.id);
+
     default:
       return doctors;
   }
 }
 
-/* ======= Hook ====== */
+/* ===== Hook Definition ===== */
+
 export function useDoctors({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
 }: UseDoctorsProps) {
-  /* ====== States ====== */
+  /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
   const [totPages, setTotPages] = useState(1);
@@ -133,17 +150,25 @@ export function useDoctors({
     selectedEntity: null,
   });
 
-  /* ======= Form Actions ======== */
+  const [optimisticDoctors, setOptimisticDoctors] = useOptimistic(
+    state.doctors,
+    optimisticDoctorUpdate
+  );
+
+  /* ===== Form Actions ===== */
+
+  // Create Doctor
   const [createState, createFormAction, createPending] = useActionState(
     async (
       _prevState: ActionState,
       formData: FormData
     ): Promise<ActionState> => {
       console.log(`${EMOJI.OPERATION.CREATE} Creating new doctor...`);
-      
+
       const validation = createDoctorSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -155,13 +180,20 @@ export function useDoctors({
         specialization: validation.data.specialization,
         experience: validation.data.experience,
       };
-      setOptimisticDoctors({ type: "add", doctor: optimisticDoctor });
+
+      startTransition(() =>
+        setOptimisticDoctors({ type: "add", doctor: optimisticDoctor })
+      );
 
       try {
         const response = await createDoctor(formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to create doctor";
-          console.log(`${EMOJI.ERROR} Failed to create doctor: ${errorMessage}`);
+          const errorMessage =
+            response.status.message || "Failed to create doctor";
+          console.log(
+            `${EMOJI.ERROR} Failed to create doctor: ${errorMessage}`
+          );
           setOptimisticDoctors({ type: "delete", id: tempId });
           return handleActionError(new Error(errorMessage));
         }
@@ -173,9 +205,12 @@ export function useDoctors({
             response.data,
           ],
         }));
-        
-        console.log(`${EMOJI.SUCCESS} Doctor created successfully! ID: ${response.data.id}`);
+
+        console.log(
+          `${EMOJI.SUCCESS} Doctor created successfully! ID: ${response.data.id}`
+        );
         toast.success("Doctor created successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
         setOptimisticDoctors({ type: "delete", id: tempId });
@@ -185,6 +220,7 @@ export function useDoctors({
     { success: false, error: null, fieldErrors: {} }
   );
 
+  // Update Doctor
   const [updateState, updateFormAction, updatePending] = useActionState(
     async (
       _prevState: ActionState,
@@ -196,11 +232,14 @@ export function useDoctors({
         return handleActionError(new Error(errorMsg));
       }
 
-      console.log(`${EMOJI.OPERATION.UPDATE} Updating doctor ${state.selectedEntity.id}...`);
-      
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Updating doctor ${state.selectedEntity.id}...`
+      );
+
       const validation = updateDoctorSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -210,13 +249,20 @@ export function useDoctors({
         ...state.selectedEntity,
         ...validation.data,
       };
-      setOptimisticDoctors({ type: "update", doctor: optimisticDoctor });
+
+      startTransition(() =>
+        setOptimisticDoctors({ type: "update", doctor: optimisticDoctor })
+      );
 
       try {
         const response = await updateDoctor(state.selectedEntity.id, formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to update doctor";
-          console.log(`${EMOJI.ERROR} Failed to update doctor ${state.selectedEntity.id}: ${errorMessage}`);
+          const errorMessage =
+            response.status.message || "Failed to update doctor";
+          console.log(
+            `${EMOJI.ERROR} Failed to update doctor ${state.selectedEntity.id}: ${errorMessage}`
+          );
           setOptimisticDoctors({ type: "update", doctor: prevDoctor });
           return handleActionError(new Error(errorMessage));
         }
@@ -228,9 +274,12 @@ export function useDoctors({
           ),
           selectedEntity: null,
         }));
-        
-        console.log(`${EMOJI.SUCCESS} Doctor ${state.selectedEntity.id} updated successfully!`);
+
+        console.log(
+          `${EMOJI.SUCCESS} Doctor ${state.selectedEntity.id} updated successfully!`
+        );
         toast.success("Doctor updated successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
         setOptimisticDoctors({ type: "update", doctor: prevDoctor });
@@ -240,23 +289,16 @@ export function useDoctors({
     { success: false, error: null, fieldErrors: {} }
   );
 
-  const [optimisticDoctors, setOptimisticDoctors] = useOptimistic(
-    state.doctors,
-    optimisticDoctorUpdate
-  );
+  /* ===== Fetch Doctors ===== */
 
-  /* ======= Memoized Values ======== */
-  const isLoading = useMemo(
-    () => isPending || createPending || updatePending,
-    [isPending, createPending, updatePending]
-  );
-
-  /* ======= Fetch Doctors ======== */
   const loadDoctors = useCallback(async (page: number, size: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Fetching doctors (page ${page}, size ${size})...`);
-    
+    console.log(
+      `${EMOJI.OPERATION.FETCH} Fetching doctors (page ${page}, size ${size})...`
+    );
+
     try {
       const response = await fetchDoctors(page, size);
+
       if (!response.success) {
         throw new Error(response.status.message || "Failed to fetch doctors");
       }
@@ -267,19 +309,24 @@ export function useDoctors({
         error: null,
         selectedEntity: null,
       }));
-      setTotPages(response.data.totalPages || 0);
-      
-      console.log(`${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} doctors`);
+      setTotPages(response.data.totalPages || 1);
+
+      console.log(
+        `${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} doctors`
+      );
     } catch (error) {
-      const errorMessage =
+      const errorMessage = `${EMOJI.ERROR} ${
         error instanceof Error
-          ? `${EMOJI.ERROR} ${error.message}`
-          : `${EMOJI.ERROR} An error occurred while fetching doctors.`;
+          ? error.message
+          : "An error occurred while fetching doctors."
+      }`;
+
       setState((prev) => ({
         ...prev,
         error: errorMessage,
         selectedEntity: null,
       }));
+
       console.error(errorMessage);
       toast.error(errorMessage);
     }
@@ -287,35 +334,26 @@ export function useDoctors({
 
   useEffect(() => {
     const abortController = new AbortController();
+
     startTransition(() => {
       loadDoctors(page, size);
     });
+
     return () => abortController.abort();
   }, [page, size, loadDoctors]);
 
-  /* ======= Window Resize (Debounced) ======== */
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
-      console.log(`${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`);
-      setSize(newSize);
-    };
-    const debouncedResize = debounce(handleResize, 250);
-    window.addEventListener("resize", debouncedResize);
-    return () => window.removeEventListener("resize", debouncedResize);
-  }, []);
+  /* ===== Delete Doctor ===== */
 
-  /* ======= Delete Doctor (With Rollback) ======== */
   const handleDelete = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       console.log(`${EMOJI.OPERATION.DELETE} Deleting doctor ${id}...`);
-      
-      const prevDoctors = state.doctors;
-      setOptimisticDoctors({ type: "delete", id });
+
+      const prevDoctors = [...state.doctors];
+      startTransition(() => setOptimisticDoctors({ type: "delete", id }));
 
       try {
         const response = await deleteDoctor(id);
+
         if (!response.success) {
           throw new Error(response.status.message || "Failed to delete doctor");
         }
@@ -324,28 +362,65 @@ export function useDoctors({
           ...prev,
           doctors: prev.doctors.filter((doctor) => doctor.id !== id),
         }));
-        
+
         console.log(`${EMOJI.SUCCESS} Doctor ${id} deleted successfully!`);
         toast.success("Doctor deleted successfully");
+
         return { success: true };
       } catch (error) {
         console.log(`${EMOJI.ERROR} Failed to delete doctor ${id}`);
+
         setState((prev) => ({ ...prev, doctors: prevDoctors }));
         const errorResult = handleActionError(error);
+
         return { success: false, error: errorResult.error };
       }
     },
     [state.doctors, setOptimisticDoctors]
   );
 
-  /* ======= Pagination ======== */
-  const handlePagination = (newPage: number, newPageSize: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`);
-    startTransition(() => {
-      setPage(newPage);
-      setSize(newPageSize);
-    });
-  };
+  /* ===== Resize Handling ===== */
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
+
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`
+      );
+      setSize(newSize);
+    };
+
+    const debouncedResize = debounce(handleResize, 250);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  }, []);
+
+  /* ===== Pagination ===== */
+
+  const handlePagination = useCallback(
+    (newPage: number, newPageSize: number) => {
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`
+      );
+      startTransition(() => {
+        setPage(newPage);
+        setSize(newPageSize);
+      });
+    },
+    []
+  );
+
+  /* ===== Derived Values ===== */
+
+  const isLoading = useMemo(
+    () => isPending || createPending || updatePending,
+    [isPending, createPending, updatePending]
+  );
+
+  /* ===== Exposed Return Values ===== */
 
   return {
     doctors: optimisticDoctors,

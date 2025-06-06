@@ -58,7 +58,7 @@ export const PaginationControls = ({
           id="pageSize"
           value={size}
           onChange={(e) => handleSizeChange(Number(e.target.value))}
-          className="bg-white border border-gray-300 rounded-md px-3 py-1 text-sm"
+          className="bg-white border border-purple-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           aria-label="Select items per page"
         >
           {[5, 10, 20, 50].map((sizeOption) => (
@@ -77,11 +77,10 @@ export const PaginationControls = ({
           onClick={() => handlePageChange(page - 1)}
           className={cn(
             'px-4 py-2 rounded-lg font-medium',
-            'bg-white text-black border border-gray-200',
-            'hover:bg-gray-100 hover:scale-105',
+            'bg-purple-600 text-white border border-purple-500 shadow-sm',
+            'hover:bg-purple-700 hover:scale-105',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            'transition-all duration-200 ease-in-out',
-            'shadow-sm hover:shadow-md'
+            'transition-all duration-200 ease-in-out'
           )}
           aria-label="Previous page"
         >
@@ -95,12 +94,11 @@ export const PaginationControls = ({
               key={num}
               onClick={() => handlePageChange(num)}
               className={cn(
-                'px-4 py-2 rounded-lg font-medium',
+                'px-4 py-2 rounded-lg font-medium transition-all duration-200',
                 num === page
-                  ? 'bg-blue-500 text-white shadow-md'
-                  : 'bg-white text-black border border-gray-200 hover:bg-gray-100 hover:scale-105',
-                'transition-all duration-200 ease-in-out',
-                'shadow-sm'
+                  ? 'bg-purple-500 text-orange-400 shadow-md scale-105'
+                  : 'bg-white text-purple-800 border border-purple-300 hover:bg-purple-50 hover:scale-105',
+                'border shadow-sm'
               )}
               aria-current={num === page ? 'page' : undefined}
               aria-label={`Go to page ${num}`}
@@ -116,11 +114,10 @@ export const PaginationControls = ({
           onClick={() => handlePageChange(page + 1)}
           className={cn(
             'px-4 py-2 rounded-lg font-medium',
-            'bg-white text-black border border-gray-200',
-            'hover:bg-gray-100 hover:scale-105',
+            'bg-purple-600 text-white border border-purple-500 shadow-sm',
+            'hover:bg-purple-700 hover:scale-105',
             'disabled:opacity-50 disabled:cursor-not-allowed',
-            'transition-all duration-200 ease-in-out',
-            'shadow-sm hover:shadow-md'
+            'transition-all duration-200 ease-in-out'
           )}
           aria-label="Next page"
         >

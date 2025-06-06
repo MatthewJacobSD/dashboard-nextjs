@@ -1,42 +1,16 @@
-'use client';
+'use client'
 
-import { cn } from '@/shared/utils/cn';
-import React from 'react';
+import { cn } from '@/shared/utils/cn'
+import React from 'react'
 
-/* ============ Type Definitions ============ */
-
-/**
- * Props for the PageHeader component
- * 
- * @property {string} title - The main heading text (required)
- * @property {string} description - The subheading text (required)
- * @property {React.ReactNode} [actions] - Optional action buttons or elements
- * @property {string} [className] - Additional CSS classes for custom styling
- * @property {React.ReactNode} [children] - Optional children elements
- */
 interface PageHeaderProps {
-  title: string;
-  description: string;
-  actions?: React.ReactNode;
-  className?: string;
-  children?: React.ReactNode;
+  title: string
+  description: string
+  actions?: React.ReactNode
+  className?: string
+  children?: React.ReactNode
 }
 
-/* ============ PageHeader Component ============ */
-
-/**
- * A reusable page header component with consistent styling and layout.
- * 
- * Features:
- * - Responsive layout (vertical on mobile, horizontal on larger screens)
- * - Proper ARIA attributes for accessibility
- * - Animation on mount
- * - Optional action buttons area
- * - Customizable styling
- * 
- * @param {PageHeaderProps} props - Component properties
- * @returns {React.ReactElement} A fully accessible page header component
- */
 export const PageHeader = React.memo(
   ({
     title,
@@ -45,41 +19,44 @@ export const PageHeader = React.memo(
     className = '',
     children,
   }: PageHeaderProps): React.ReactElement => {
-    console.log('🏷️ Rendering PageHeader with title:', title);
-
     return (
       <header
         className={cn(
-          'flex flex-col sm:flex-row justify-between items-start sm:items-center',
-          'gap-m mb-m p-m bg-card rounded-m shadow-md border border-border',
-          'animate-fade-in',
+          // Base styles
+          'flex flex-col gap-4 p-4 sm:p-6 rounded-lg shadow-md border border-gray-700',
+          'bg-gray-900 text-white', // dark background, white text
+          // Responsive layout
+          'md:flex-row md:justify-between md:items-center',
+          // Custom classes override
           className
         )}
         role="banner"
         aria-label={`Page header: ${title}`}
       >
-        <div className="space-y-xs">
-          <h1 className="text-heading font-bold text-orange-500">
+        {/* Left Content */}
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-orange-500 leading-tight">
             {title}
           </h1>
-          <p className="text-base text-gray-575">
+          <p className="text-sm sm:text-base text-gray-300">
             {description}
           </p>
-          {children}
+          {children && <div className="mt-2">{children}</div>}
         </div>
-        
+
+        {/* Right Actions */}
         {actions && (
-          <div 
-            className="flex gap-xs flex-wrap" 
-            role="toolbar" 
+          <div
+            className="flex flex-wrap gap-2 justify-start md:justify-end"
+            role="toolbar"
             aria-label={`Actions for ${title}`}
           >
             {actions}
           </div>
         )}
       </header>
-    );
+    )
   }
-);
+)
 
-PageHeader.displayName = 'PageHeader';
+PageHeader.displayName = 'PageHeader'

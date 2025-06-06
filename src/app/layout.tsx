@@ -8,12 +8,12 @@ export const metadata = {
   title: 'SanaSpace Dashboard',
   description: 'Admin dashboard for managing doctors, built to slay',
   icons: {
-    icon: '/favicon.ico', // Add your favicon path if available
+    icon: '/favicon.ico',
   },
   openGraph: {
     title: 'SanaSpace Dashboard',
     description: 'Admin dashboard for managing doctors, built to slay',
-    url: 'https://your-site-url.com', // Replace with your site URL
+    url: 'https://your-site-url.com', 
     siteName: 'SanaSpace',
     type: 'website',
   },
@@ -27,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" dir="ltr">
-      <body className="bg-background text-foreground font-sans">
+      <body className="bg-gray-50 text-gray-900 font-sans min-h-screen">
         <div className="flex min-h-screen">
           <Sidebar />
           <main 

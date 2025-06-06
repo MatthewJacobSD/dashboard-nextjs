@@ -20,7 +20,7 @@ interface NavItem {
   label: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  iconColor: string;
+  iconColor: string; // Tailwind class like "text-purple-400"
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -39,7 +39,6 @@ export function Sidebar() {
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [isTablet, setIsTablet] = useState<boolean>(false);
 
-  // Adjust main content padding based on sidebar state
   const adjustMainContentPadding = useCallback(() => {
     const main = document.getElementById('main-content');
     if (!main) return;
@@ -54,17 +53,15 @@ export function Sidebar() {
   }, [isMobile, isTablet, isOpen]);
 
   const toggleSidebar = useCallback(() => {
-    setIsOpen(prev => !prev);
+    setIsOpen((prev) => !prev);
   }, []);
 
-  // Handle responsive behavior
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
       setIsMobile(width < 640);
       setIsTablet(width >= 640 && width < 1024);
-      
-      // Auto-close sidebar when resizing to mobile
+
       if (width < 640) setIsOpen(false);
     };
 
@@ -73,16 +70,14 @@ export function Sidebar() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Adjust padding when state changes
   useEffect(() => {
     adjustMainContentPadding();
   }, [isOpen, isMobile, isTablet, adjustMainContentPadding]);
-
   return (
     <>
-      {/* Mobile Navigation */}
+      {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50">
+        <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 z-50">
           <div className="flex justify-around p-2">
             {NAV_ITEMS.slice(0, 4).map((item) => (
               <Link
@@ -90,34 +85,39 @@ export function Sidebar() {
                 href={item.path}
                 className={cn(
                   'flex flex-col items-center p-2 rounded-lg transition-all duration-200',
-                  'hover:bg-accent/50 hover:scale-105 hover:shadow-sm hover:shadow-gray-500 ',
-                  pathname === item.path 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-muted-foreground hover:text-primary'
+                  'hover:bg-gray-700/70 hover:scale-105 hover:shadow-sm',
+                  pathname === item.path
+                    ? 'text-purple-400'
+                    : 'text-gray-400 hover:text-purple-300'
                 )}
               >
-                <item.icon className={cn(
-                  'w-5 h-5 transition-colors duration-200',
-                  pathname === item.path 
-                    ? item.iconColor 
-                    : 'group-hover:text-primary'
-                )} />
+                <item.icon
+                  className={cn(
+                    'w-5 h-5 transition-colors duration-200',
+                    pathname === item.path
+                      ? item.iconColor
+                      : 'text-gray-400 group-hover:text-purple-300'
+                  )}
+                />
                 <span className="text-xs mt-1 transition-colors duration-200">{item.label}</span>
               </Link>
             ))}
             <button
               onClick={toggleSidebar}
-              className="flex flex-col items-center p-2 rounded-lg text-muted-foreground
-                        hover:bg-accent/50 hover:scale-105 hover:text-primary transition-all duration-200"
+              className={cn(
+                'flex flex-col items-center p-2 rounded-lg',
+                'text-gray-400 hover:text-purple-300 hover:bg-gray-700/70',
+                'transition-all duration-200'
+              )}
             >
               <Menu className="w-5 h-5 transition-colors duration-200" />
-              <span className="text-xs mt-1 transition-colors duration-200">More</span>
+              <span className="text-xs mt-1">More</span>
             </button>
           </div>
 
-          {/* Expanded menu */}
+          {/* Expanded menu on mobile */}
           {isOpen && (
-            <div className="absolute bottom-full left-0 right-0 bg-background p-4 border-b border-border shadow-lg">
+            <div className="absolute bottom-full left-0 right-0 bg-gray-800 p-4 border-b border-gray-700 shadow-lg">
               <div className="grid grid-cols-2 gap-2">
                 {NAV_ITEMS.slice(4).map((item) => (
                   <Link
@@ -125,29 +125,28 @@ export function Sidebar() {
                     href={item.path}
                     className={cn(
                       'flex items-center gap-2 p-2 rounded-lg transition-all duration-200',
-                      'hover:bg-accent/50 hover:scale-[1.02] hover:shadow-sm hover:shadow-gray-400 hover:border-b-2 hover:borde',
-                      pathname === item.path 
-                        ? 'text-primary bg-primary/10' 
-                        : 'text-muted-foreground hover:text-primary'
+                      'hover:bg-gray-700 hover:text-purple-300',
+                      pathname === item.path
+                        ? 'text-purple-400 bg-gray-700/70'
+                        : 'text-gray-400'
                     )}
                     onClick={() => setIsOpen(false)}
                   >
-                    <item.icon className={cn(
-                      'w-5 h-5 transition-colors duration-200',
-                      pathname === item.path 
-                        ? item.iconColor 
-                        : 'group-hover:text-primary'
-                    )} />
-                    <span className="transition-colors duration-200">{item.label}</span>
+                    <item.icon
+                      className={cn(
+                        'w-5 h-5 transition-colors duration-200',
+                        pathname === item.path ? item.iconColor : 'text-gray-400'
+                      )}
+                    />
+                    <span>{item.label}</span>
                   </Link>
                 ))}
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="absolute top-2 right-2 p-1 rounded-full hover:bg-accent
-                          hover:scale-110 transition-all duration-200"
+                className="absolute top-2 right-2 p-1 rounded-full hover:bg-gray-700 hover:text-white transition-all duration-200"
               >
-                <X className="w-5 h-5 transition-colors duration-200" />
+                <X className="w-5 h-5 text-gray-400 hover:text-white" />
               </button>
             </div>
           )}
@@ -158,15 +157,15 @@ export function Sidebar() {
       {!isMobile && (
         <aside
           className={cn(
-            'fixed top-0 left-0 h-screen w-64 bg-background border-r border-border z-40',
+            'fixed top-0 left-0 h-screen w-64 bg-gray-900 border-r border-gray-700 z-40',
             'transition-transform duration-300 ease-in-out',
             isTablet && !isOpen ? '-translate-x-full' : 'translate-x-0'
           )}
         >
           <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-border">
-              <h1 className="text-xl font-bold flex items-center gap-2">
-                <LayoutDashboard className="text-primary" />
+            <div className="p-4 border-b border-gray-700">
+              <h1 className="text-xl font-bold flex items-center gap-2 text-white">
+                <LayoutDashboard className="text-purple-400" />
                 SanaSpace
               </h1>
             </div>
@@ -177,26 +176,26 @@ export function Sidebar() {
                     <Link
                       href={item.path}
                       className={cn(
-                        'flex items-center gap-3 p-3 rounded-lg group transition-all duration-200',
-                        'hover:bg-accent/50 hover:shadow-gray-400 hover:border-b-2 hover:border-l-3 hover:shadow-xl hover:translate-x-1',
-                        pathname === item.path 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'text-muted-foreground hover:text-primary'
+                        'flex items-center gap-3 p-3 rounded-lg transition-all duration-200',
+                        'hover:bg-gray-800 hover:shadow-md hover:shadow-purple-500/10 hover:translate-x-1',
+                        pathname === item.path
+                          ? 'bg-gray-800 text-purple-400'
+                          : 'text-gray-400 hover:text-purple-300'
                       )}
                     >
-                      <item.icon className={cn(
-                        'w-5 h-5 transition-colors duration-200',
-                        pathname === item.path 
-                          ? item.iconColor 
-                          : 'group-hover:text-primary'
-                      )} />
+                      <item.icon
+                        className={cn(
+                          'w-5 h-5 transition-colors duration-200',
+                          pathname === item.path ? item.iconColor : ''
+                        )}
+                      />
                       <span className="transition-colors duration-200">{item.label}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
             </nav>
-            <footer className="p-4 border-t border-border text-center text-sm text-muted-foreground">
+            <footer className="p-4 border-t border-gray-700 text-center text-sm text-gray-500">
               SanaSpace &copy; {new Date().getFullYear()} MatthewJacobSD
             </footer>
           </div>
@@ -208,8 +207,10 @@ export function Sidebar() {
         <button
           onClick={toggleSidebar}
           className={cn(
-            'fixed z-30 p-2 rounded-full bg-background border border-border shadow-md',
-            'transition-all duration-300 ease-in-out hover:bg-accent hover:scale-110',
+            'fixed z-30 p-2 rounded-full bg-gray-800 border border-gray-700 shadow-md',
+            'hover:bg-gray-700 hover:scale-110',
+            'text-gray-400 hover:text-white',
+            'transition-all duration-300 ease-in-out',
             isOpen ? 'left-[16.5rem]' : 'left-4',
             'top-4'
           )}
