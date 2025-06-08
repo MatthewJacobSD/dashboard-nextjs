@@ -10,33 +10,39 @@ import {
   useMemo,
 } from "react";
 import { toast } from "react-toastify";
+
+// Zod Schemas
 import {
   createPrescriptionSchema,
   Prescription,
   updatePrescriptionSchema,
 } from "@/shared/lib/zod/prescription";
+
+// API Actions
 import {
   createPrescription,
   deletePrescription,
   fetchPrescriptions,
   updatePrescription,
 } from "@/app/prescriptions/actions";
-import { z } from "zod";
-import { debounce } from "../utils/debounce";
 
-/* ====== Constants ====== */
+// Utils
+import { debounce } from "../utils/debounce";
+import z from "zod";
+
+/* ===== Constants ===== */
 const EMOJI = {
-  SUCCESS: '🔥',
-  ERROR: '♨️',
+  SUCCESS: "🔥",
+  ERROR: "♨️",
   OPERATION: {
-    CREATE: '🆕',
-    UPDATE: '♻️',
-    DELETE: '🗑️',
-    FETCH: '🔍'
-  }
+    CREATE: "🆕",
+    UPDATE: "♻️",
+    DELETE: "🗑️",
+    FETCH: "🔍",
+  },
 } as const;
 
-/* ====== Types ====== */
+/* ===== Types ===== */
 interface UsePrescriptionsProps {
   initialData?: Prescription[];
   page?: number;
@@ -50,7 +56,7 @@ interface PrescriptionState {
   selectedEntity: Prescription | null;
 }
 
-interface ActionState {
+export interface ActionState {
   success: boolean;
   error: string | null;
   fieldErrors?: Record<string, string[]>;
@@ -62,7 +68,26 @@ type OptimisticUpdate =
   | { type: "update"; prescription: Prescription }
   | { type: "delete"; id: string };
 
+// Define return type for the hook
+interface UsePrescriptionsReturn {
+  prescriptions: Prescription[];
+  isLoading: boolean;
+  error: string | null;
+  page: number;
+  size: number;
+  setPage: (newPage: number, newPageSize: number) => void;
+  totPages: number;
+  selectedEntity: Prescription | null;
+  setSelectedEntity: (prescription: Prescription | null) => void;
+  createFormAction: (formData: FormData) => void;
+  updateFormAction: (formData: FormData) => void;
+  handleDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  createState: ActionState;
+  updateState: ActionState;
+}
+
 /* ===== Utility Functions ===== */
+
 /**
  * Handles errors from actions and returns standardized error state
  */
@@ -86,9 +111,11 @@ function handleActionError(error: unknown | z.ZodError): {
       ),
     };
   }
+
   const errorMsg = `${EMOJI.ERROR} ${error instanceof Error ? error.message : "Operation failed"}`;
   console.error(errorMsg);
   toast.error(errorMsg);
+
   return { success: false, error: errorMsg };
 }
 
@@ -103,26 +130,34 @@ function optimisticPrescriptionUpdate(
     case "add":
       console.log(`${EMOJI.OPERATION.CREATE} Optimistically adding prescription`);
       return [...prescriptions, update.prescription];
+
     case "update":
-      console.log(`${EMOJI.OPERATION.UPDATE} Optimistically updating prescription ${update.prescription.id}`);
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Optimistically updating prescription ${update.prescription.id}`
+      );
       return prescriptions.map((prescription) =>
         prescription.id === update.prescription.id ? update.prescription : prescription
       );
+
     case "delete":
-      console.log(`${EMOJI.OPERATION.DELETE} Optimistically deleting prescription ${update.id}`);
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Optimistically deleting prescription ${update.id}`
+      );
       return prescriptions.filter((prescription) => prescription.id !== update.id);
+
     default:
       return prescriptions;
   }
 }
 
-/* ======= Hook ====== */
+/* ===== Hook Definition ===== */
+
 export function usePrescriptions({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
-}: UsePrescriptionsProps) {
-  /* ====== States ====== */
+}: UsePrescriptionsProps): UsePrescriptionsReturn {
+  /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
   const [totPages, setTotPages] = useState(1);
@@ -133,17 +168,25 @@ export function usePrescriptions({
     selectedEntity: null,
   });
 
-  /* ======= Form Actions ======== */
+  const [optimisticPrescriptions, setOptimisticPrescriptions] = useOptimistic(
+    state.prescriptions,
+    optimisticPrescriptionUpdate
+  );
+
+  /* ===== Form Actions ===== */
+
+  // Create Prescription
   const [createState, createFormAction, createPending] = useActionState(
     async (
       _prevState: ActionState,
       formData: FormData
     ): Promise<ActionState> => {
       console.log(`${EMOJI.OPERATION.CREATE} Creating new prescription...`);
-      
+
       const validation = createPrescriptionSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -153,36 +196,57 @@ export function usePrescriptions({
         id: tempId,
         ...validation.data,
       };
-      setOptimisticPrescriptions({ type: "add", prescription: optimisticPrescription });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticPrescriptions({ type: "add", prescription: optimisticPrescription });
+      });
 
       try {
         const response = await createPrescription(formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to create prescription";
-          console.log(`${EMOJI.ERROR} Failed to create prescription: ${errorMessage}`);
-          setOptimisticPrescriptions({ type: "delete", id: tempId });
+          const errorMessage =
+            response.status.message || "Failed to create prescription";
+          console.log(
+            `${EMOJI.ERROR} Failed to create prescription: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticPrescriptions({ type: "delete", id: tempId });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          prescriptions: [
-            ...prev.prescriptions.filter((prescription) => prescription.id !== tempId),
-            response.data,
-          ],
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Prescription created successfully! ID: ${response.data.id}`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            prescriptions: [
+              ...prev.prescriptions.filter((prescription) => prescription.id !== tempId),
+              response.data,
+            ],
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Prescription created successfully! ID: ${response.data.id}`
+        );
         toast.success("Prescription created successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticPrescriptions({ type: "delete", id: tempId });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticPrescriptions({ type: "delete", id: tempId });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
+  // Update Prescription
   const [updateState, updateFormAction, updatePending] = useActionState(
     async (
       _prevState: ActionState,
@@ -194,11 +258,14 @@ export function usePrescriptions({
         return handleActionError(new Error(errorMsg));
       }
 
-      console.log(`${EMOJI.OPERATION.UPDATE} Updating prescription ${state.selectedEntity.id}...`);
-      
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Updating prescription ${state.selectedEntity.id}...`
+      );
+
       const validation = updatePrescriptionSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -208,53 +275,66 @@ export function usePrescriptions({
         ...state.selectedEntity,
         ...validation.data,
       };
-      setOptimisticPrescriptions({ type: "update", prescription: optimisticPrescription });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticPrescriptions({ type: "update", prescription: optimisticPrescription });
+      });
 
       try {
         const response = await updatePrescription(state.selectedEntity.id, formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to update prescription";
-          console.log(`${EMOJI.ERROR} Failed to update prescription ${state.selectedEntity.id}: ${errorMessage}`);
-          setOptimisticPrescriptions({ type: "update", prescription: prevPrescription });
+          const errorMessage =
+            response.status.message || "Failed to update prescription";
+          console.log(
+            `${EMOJI.ERROR} Failed to update prescription ${state.selectedEntity.id}: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticPrescriptions({ type: "update", prescription: prevPrescription });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          prescriptions: prev.prescriptions.map((d) =>
-            d.id === state.selectedEntity?.id ? response.data : d
-          ),
-          selectedEntity: null,
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Prescription ${state.selectedEntity.id} updated successfully!`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            prescriptions: prev.prescriptions.map((d) =>
+              d.id === state.selectedEntity?.id ? response.data : d
+            ),
+            selectedEntity: null,
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Prescription ${state.selectedEntity.id} updated successfully!`
+        );
         toast.success("Prescription updated successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticPrescriptions({ type: "update", prescription: prevPrescription });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticPrescriptions({ type: "update", prescription: prevPrescription });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
-  const [optimisticPrescriptions, setOptimisticPrescriptions] = useOptimistic(
-    state.prescriptions,
-    optimisticPrescriptionUpdate
-  );
+  /* ===== Fetch Prescriptions ===== */
 
-  /* ======= Memoized Values ======== */
-  const isLoading = useMemo(
-    () => isPending || createPending || updatePending,
-    [isPending, createPending, updatePending]
-  );
-
-  /* ======= Fetch Prescriptions ======== */
   const loadPrescriptions = useCallback(async (page: number, size: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Fetching prescriptions (page ${page}, size ${size})...`);
-    
+    console.log(
+      `${EMOJI.OPERATION.FETCH} Fetching prescriptions (page ${page}, size ${size})...`
+    );
+
     try {
       const response = await fetchPrescriptions(page, size);
+
       if (!response.success) {
         throw new Error(response.status.message || "Failed to fetch prescriptions");
       }
@@ -266,18 +346,23 @@ export function usePrescriptions({
         selectedEntity: null,
       }));
       setTotPages(response.data.totalPages || 1);
-      
-      console.log(`${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} prescriptions`);
+
+      console.log(
+        `${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} prescriptions`
+      );
     } catch (error) {
-      const errorMessage =
+      const errorMessage = `${EMOJI.ERROR} ${
         error instanceof Error
-          ? `${EMOJI.ERROR} ${error.message}`
-          : `${EMOJI.ERROR} An error occurred while fetching prescriptions.`;
+          ? error.message
+          : "An error occurred while fetching prescriptions."
+      }`;
+
       setState((prev) => ({
         ...prev,
         error: errorMessage,
         selectedEntity: null,
       }));
+
       console.error(errorMessage);
       toast.error(errorMessage);
     }
@@ -285,35 +370,26 @@ export function usePrescriptions({
 
   useEffect(() => {
     const abortController = new AbortController();
+
     startTransition(() => {
       loadPrescriptions(page, size);
     });
+
     return () => abortController.abort();
   }, [page, size, loadPrescriptions]);
 
-  /* ======= Window Resize (Debounced) ======== */
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
-      console.log(`${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`);
-      setSize(newSize);
-    };
-    const debouncedResize = debounce(handleResize, 250);
-    window.addEventListener("resize", debouncedResize);
-    return () => window.removeEventListener("resize", debouncedResize);
-  }, []);
+  /* ===== Delete Prescription ===== */
 
-  /* ======= Delete Prescription (With Rollback) ======== */
   const handleDelete = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       console.log(`${EMOJI.OPERATION.DELETE} Deleting prescription ${id}...`);
-      
-      const prevPrescriptions = state.prescriptions;
-      setOptimisticPrescriptions({ type: "delete", id });
+
+      const prevPrescriptions = [...state.prescriptions];
+      startTransition(() => setOptimisticPrescriptions({ type: "delete", id }));
 
       try {
         const response = await deletePrescription(id);
+
         if (!response.success) {
           throw new Error(response.status.message || "Failed to delete prescription");
         }
@@ -322,35 +398,70 @@ export function usePrescriptions({
           ...prev,
           prescriptions: prev.prescriptions.filter((prescription) => prescription.id !== id),
         }));
-        
+
         console.log(`${EMOJI.SUCCESS} Prescription ${id} deleted successfully!`);
         toast.success("Prescription deleted successfully");
+
         return { success: true };
       } catch (error) {
         console.log(`${EMOJI.ERROR} Failed to delete prescription ${id}`);
+
         setState((prev) => ({ ...prev, prescriptions: prevPrescriptions }));
         const errorResult = handleActionError(error);
+
         return { success: false, error: errorResult.error };
       }
     },
     [state.prescriptions, setOptimisticPrescriptions]
   );
 
-  /* ======= Pagination ======== */
-  const handlePagination = (newPage: number, newPageSize: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`);
-    startTransition(() => {
-      setPage(newPage);
-      setSize(newPageSize);
-    });
-  };
+  /* ===== Resize Handling ===== */
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
+
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`
+      );
+      setSize(newSize);
+    };
+
+    const debouncedResize = debounce(handleResize, 250);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  }, []);
+
+  /* ===== Pagination ===== */
+
+  const handlePagination = useCallback(
+    (newPage: number, newPageSize: number) => {
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`
+      );
+      startTransition(() => {
+        setPage(newPage);
+        setSize(newPageSize);
+      });
+    },
+    []
+  );
+
+  /* ===== Derived Values ===== */
+
+  const isLoading = useMemo(
+    () => isPending || createPending || updatePending,
+    [isPending, createPending, updatePending]
+  );
+
+  /* ===== Exposed Return Values ===== */
 
   return {
     prescriptions: optimisticPrescriptions,
     isLoading,
     error: state.error || createState.error || updateState.error,
-    fieldErrors:
-      state.fieldErrors || createState.fieldErrors || updateState.fieldErrors,
     page,
     size,
     setPage: handlePagination,
@@ -361,5 +472,7 @@ export function usePrescriptions({
     createFormAction,
     updateFormAction,
     handleDelete,
+    createState,
+    updateState,
   };
 }

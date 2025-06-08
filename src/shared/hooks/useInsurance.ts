@@ -10,33 +10,39 @@ import {
   useMemo,
 } from "react";
 import { toast } from "react-toastify";
+
+// Zod Schemas
 import {
   createInsuranceSchema,
   Insurance,
   updateInsuranceSchema,
 } from "@/shared/lib/zod/insurance";
+
+// API Actions
 import {
   createInsurance,
   deleteInsurance,
   fetchInsurances,
   updateInsurance,
 } from "@/app/insurances/actions";
-import { z } from "zod";
-import { debounce } from "../utils/debounce";
 
-/* ====== Constants ====== */
+// Utils
+import { debounce } from "../utils/debounce";
+import z from "zod";
+
+/* ===== Constants ===== */
 const EMOJI = {
-  SUCCESS: '🔥',
-  ERROR: '♨️',
+  SUCCESS: "🔥",
+  ERROR: "♨️",
   OPERATION: {
-    CREATE: '🆕',
-    UPDATE: '♻️',
-    DELETE: '🗑️',
-    FETCH: '🔍'
-  }
+    CREATE: "🆕",
+    UPDATE: "♻️",
+    DELETE: "🗑️",
+    FETCH: "🔍",
+  },
 } as const;
 
-/* ====== Types ====== */
+/* ===== Types ===== */
 interface UseInsurancesProps {
   initialData?: Insurance[];
   page?: number;
@@ -50,7 +56,7 @@ interface InsuranceState {
   selectedEntity: Insurance | null;
 }
 
-interface ActionState {
+export interface ActionState {
   success: boolean;
   error: string | null;
   fieldErrors?: Record<string, string[]>;
@@ -62,7 +68,26 @@ type OptimisticUpdate =
   | { type: "update"; insurance: Insurance }
   | { type: "delete"; id: string };
 
+// Define return type for the hook
+interface UseInsurancesReturn {
+  insurances: Insurance[];
+  isLoading: boolean;
+  error: string | null;
+  page: number;
+  size: number;
+  setPage: (newPage: number, newPageSize: number) => void;
+  totPages: number;
+  selectedEntity: Insurance | null;
+  setSelectedEntity: (insurance: Insurance | null) => void;
+  createFormAction: (formData: FormData) => void;
+  updateFormAction: (formData: FormData) => void;
+  handleDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  createState: ActionState;
+  updateState: ActionState;
+}
+
 /* ===== Utility Functions ===== */
+
 /**
  * Handles errors from actions and returns standardized error state
  */
@@ -86,9 +111,11 @@ function handleActionError(error: unknown | z.ZodError): {
       ),
     };
   }
+
   const errorMsg = `${EMOJI.ERROR} ${error instanceof Error ? error.message : "Operation failed"}`;
   console.error(errorMsg);
   toast.error(errorMsg);
+
   return { success: false, error: errorMsg };
 }
 
@@ -103,26 +130,34 @@ function optimisticInsuranceUpdate(
     case "add":
       console.log(`${EMOJI.OPERATION.CREATE} Optimistically adding insurance`);
       return [...insurances, update.insurance];
+
     case "update":
-      console.log(`${EMOJI.OPERATION.UPDATE} Optimistically updating insurance ${update.insurance.id}`);
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Optimistically updating insurance ${update.insurance.id}`
+      );
       return insurances.map((insurance) =>
         insurance.id === update.insurance.id ? update.insurance : insurance
       );
+
     case "delete":
-      console.log(`${EMOJI.OPERATION.DELETE} Optimistically deleting insurance ${update.id}`);
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Optimistically deleting insurance ${update.id}`
+      );
       return insurances.filter((insurance) => insurance.id !== update.id);
+
     default:
       return insurances;
   }
 }
 
-/* ======= Hook ====== */
+/* ===== Hook Definition ===== */
+
 export function useInsurances({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
-}: UseInsurancesProps) {
-  /* ====== States ====== */
+}: UseInsurancesProps): UseInsurancesReturn {
+  /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
   const [totPages, setTotPages] = useState(1);
@@ -133,56 +168,84 @@ export function useInsurances({
     selectedEntity: null,
   });
 
-  /* ======= Form Actions ======== */
+  const [optimisticInsurances, setOptimisticInsurances] = useOptimistic(
+    state.insurances,
+    optimisticInsuranceUpdate
+  );
+
+  /* ===== Form Actions ===== */
+
+  // Create Insurance
   const [createState, createFormAction, createPending] = useActionState(
     async (
       _prevState: ActionState,
       formData: FormData
     ): Promise<ActionState> => {
       console.log(`${EMOJI.OPERATION.CREATE} Creating new insurance...`);
-      
+
       const validation = createInsuranceSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
 
       const tempId = `temp-${crypto.randomUUID()}`;
       const optimisticInsurance: Insurance = {
-        id: tempId,
         ...validation.data,
       };
-      setOptimisticInsurances({ type: "add", insurance: optimisticInsurance });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticInsurances({ type: "add", insurance: optimisticInsurance });
+      });
 
       try {
         const response = await createInsurance(formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to create insurance";
-          console.log(`${EMOJI.ERROR} Failed to create insurance: ${errorMessage}`);
-          setOptimisticInsurances({ type: "delete", id: tempId });
+          const errorMessage =
+            response.status.message || "Failed to create insurance";
+          console.log(
+            `${EMOJI.ERROR} Failed to create insurance: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticInsurances({ type: "delete", id: tempId });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          insurances: [
-            ...prev.insurances.filter((insurance) => insurance.id !== tempId),
-            response.data,
-          ],
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Insurance created successfully! ID: ${response.data.id}`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            insurances: [
+              ...prev.insurances.filter((insurance) => insurance.id !== tempId),
+              response.data,
+            ],
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Insurance created successfully! ID: ${response.data.id}`
+        );
         toast.success("Insurance created successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticInsurances({ type: "delete", id: tempId });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticInsurances({ type: "delete", id: tempId });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
+  // Update Insurance
   const [updateState, updateFormAction, updatePending] = useActionState(
     async (
       _prevState: ActionState,
@@ -194,11 +257,14 @@ export function useInsurances({
         return handleActionError(new Error(errorMsg));
       }
 
-      console.log(`${EMOJI.OPERATION.UPDATE} Updating insurance ${state.selectedEntity.id}...`);
-      
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Updating insurance ${state.selectedEntity.id}...`
+      );
+
       const validation = updateInsuranceSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -208,53 +274,66 @@ export function useInsurances({
         ...state.selectedEntity,
         ...validation.data,
       };
-      setOptimisticInsurances({ type: "update", insurance: optimisticInsurance });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticInsurances({ type: "update", insurance: optimisticInsurance });
+      });
 
       try {
         const response = await updateInsurance(state.selectedEntity.id, formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to update insurance";
-          console.log(`${EMOJI.ERROR} Failed to update insurance ${state.selectedEntity.id}: ${errorMessage}`);
-          setOptimisticInsurances({ type: "update", insurance: prevInsurance });
+          const errorMessage =
+            response.status.message || "Failed to update insurance";
+          console.log(
+            `${EMOJI.ERROR} Failed to update insurance ${state.selectedEntity.id}: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticInsurances({ type: "update", insurance: prevInsurance });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          insurances: prev.insurances.map((d) =>
-            d.id === state.selectedEntity?.id ? response.data : d
-          ),
-          selectedEntity: null,
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Insurance ${state.selectedEntity.id} updated successfully!`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            insurances: prev.insurances.map((d) =>
+              d.id === state.selectedEntity?.id ? response.data : d
+            ),
+            selectedEntity: null,
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Insurance ${state.selectedEntity.id} updated successfully!`
+        );
         toast.success("Insurance updated successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticInsurances({ type: "update", insurance: prevInsurance });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticInsurances({ type: "update", insurance: prevInsurance });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
-  const [optimisticInsurances, setOptimisticInsurances] = useOptimistic(
-    state.insurances,
-    optimisticInsuranceUpdate
-  );
+  /* ===== Fetch Insurances ===== */
 
-  /* ======= Memoized Values ======== */
-  const isLoading = useMemo(
-    () => isPending || createPending || updatePending,
-    [isPending, createPending, updatePending]
-  );
-
-  /* ======= Fetch Insurances ======== */
   const loadInsurances = useCallback(async (page: number, size: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Fetching insurances (page ${page}, size ${size})...`);
-    
+    console.log(
+      `${EMOJI.OPERATION.FETCH} Fetching insurances (page ${page}, size ${size})...`
+    );
+
     try {
       const response = await fetchInsurances(page, size);
+
       if (!response.success) {
         throw new Error(response.status.message || "Failed to fetch insurances");
       }
@@ -266,18 +345,23 @@ export function useInsurances({
         selectedEntity: null,
       }));
       setTotPages(response.data.totalPages || 1);
-      
-      console.log(`${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} insurances`);
+
+      console.log(
+        `${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} insurances`
+      );
     } catch (error) {
-      const errorMessage =
+      const errorMessage = `${EMOJI.ERROR} ${
         error instanceof Error
-          ? `${EMOJI.ERROR} ${error.message}`
-          : `${EMOJI.ERROR} An error occurred while fetching insurances.`;
+          ? error.message
+          : "An error occurred while fetching insurances."
+      }`;
+
       setState((prev) => ({
         ...prev,
         error: errorMessage,
         selectedEntity: null,
       }));
+
       console.error(errorMessage);
       toast.error(errorMessage);
     }
@@ -285,35 +369,26 @@ export function useInsurances({
 
   useEffect(() => {
     const abortController = new AbortController();
+
     startTransition(() => {
       loadInsurances(page, size);
     });
+
     return () => abortController.abort();
   }, [page, size, loadInsurances]);
 
-  /* ======= Window Resize (Debounced) ======== */
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
-      console.log(`${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`);
-      setSize(newSize);
-    };
-    const debouncedResize = debounce(handleResize, 250);
-    window.addEventListener("resize", debouncedResize);
-    return () => window.removeEventListener("resize", debouncedResize);
-  }, []);
+  /* ===== Delete Insurance ===== */
 
-  /* ======= Delete Insurance (With Rollback) ======== */
   const handleDelete = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       console.log(`${EMOJI.OPERATION.DELETE} Deleting insurance ${id}...`);
-      
-      const prevInsurances = state.insurances;
-      setOptimisticInsurances({ type: "delete", id });
+
+      const prevInsurances = [...state.insurances];
+      startTransition(() => setOptimisticInsurances({ type: "delete", id }));
 
       try {
         const response = await deleteInsurance(id);
+
         if (!response.success) {
           throw new Error(response.status.message || "Failed to delete insurance");
         }
@@ -322,35 +397,70 @@ export function useInsurances({
           ...prev,
           insurances: prev.insurances.filter((insurance) => insurance.id !== id),
         }));
-        
+
         console.log(`${EMOJI.SUCCESS} Insurance ${id} deleted successfully!`);
         toast.success("Insurance deleted successfully");
+
         return { success: true };
       } catch (error) {
         console.log(`${EMOJI.ERROR} Failed to delete insurance ${id}`);
+
         setState((prev) => ({ ...prev, insurances: prevInsurances }));
         const errorResult = handleActionError(error);
+
         return { success: false, error: errorResult.error };
       }
     },
     [state.insurances, setOptimisticInsurances]
   );
 
-  /* ======= Pagination ======== */
-  const handlePagination = (newPage: number, newPageSize: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`);
-    startTransition(() => {
-      setPage(newPage);
-      setSize(newPageSize);
-    });
-  };
+  /* ===== Resize Handling ===== */
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
+
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`
+      );
+      setSize(newSize);
+    };
+
+    const debouncedResize = debounce(handleResize, 250);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  }, []);
+
+  /* ===== Pagination ===== */
+
+  const handlePagination = useCallback(
+    (newPage: number, newPageSize: number) => {
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`
+      );
+      startTransition(() => {
+        setPage(newPage);
+        setSize(newPageSize);
+      });
+    },
+    []
+  );
+
+  /* ===== Derived Values ===== */
+
+  const isLoading = useMemo(
+    () => isPending || createPending || updatePending,
+    [isPending, createPending, updatePending]
+  );
+
+  /* ===== Exposed Return Values ===== */
 
   return {
     insurances: optimisticInsurances,
     isLoading,
     error: state.error || createState.error || updateState.error,
-    fieldErrors:
-      state.fieldErrors || createState.fieldErrors || updateState.fieldErrors,
     page,
     size,
     setPage: handlePagination,
@@ -361,5 +471,7 @@ export function useInsurances({
     createFormAction,
     updateFormAction,
     handleDelete,
+    createState,
+    updateState,
   };
 }

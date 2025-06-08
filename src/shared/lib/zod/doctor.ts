@@ -1,42 +1,24 @@
-import { z } from 'zod';
-import { commonFields, Specialization, Experience } from './common';
+import { z } from 'zod'
+import { Specialization, Experience, commonFields } from './common'
 
-/* ========= Doctor Base Schema ========= */
-export const doctorBaseSchema = z.object({
-  firstName: commonFields.firstName,
-  lastName: commonFields.lastName,
-  address: commonFields.address,
-  email: commonFields.email,
-});
+// Base schema for doctor data, excluding phoneNumber
+export const doctorSchema = z
+  .object({
+    ...commonFields,
+    specialization: z
+      .nativeEnum(Specialization)
+      .default(Specialization.General), // Default to General specialization
+    experience: z.nativeEnum(Experience).default(Experience.Novice), // Default to Novice experience
+  })
+  .omit({ phoneNumber: true })
 
-/* ========= Doctor Schema ========= */
-export const doctorSchema = doctorBaseSchema.extend({
-  id: commonFields.id,
-  specialization: z.nativeEnum(Specialization, {
-    description: 'Medical specialization area',
-    required_error: 'Specialization is required',
-    invalid_type_error: 'Invalid specialization value'
-  }).default('General'),
-  experience: z.nativeEnum(Experience, {
-    description: 'Level of professional experience',
-    required_error: 'Experience level is required',
-    invalid_type_error: 'Invalid experience value'
-  }).default('Novice'),
-}).strict();
+// Schema for creating a new doctor, omitting id (auto-generated)
+export const createDoctorSchema = doctorSchema.omit({ id: true })
 
-/* ========= Doctor Create Schema ========= */
-export const createDoctorSchema = doctorSchema.omit({ id: true }).extend({
-  specialization: z.nativeEnum(Specialization),
-  experience: z.nativeEnum(Experience),
-});
+// Schema for updating a doctor, all fields optional, no extra fields allowed
+export const updateDoctorSchema = doctorSchema.partial().strict()
 
-/* ========= Doctor Update Schema ========= */
-export const updateDoctorSchema = doctorSchema
-  .omit({ id: true })
-  .partial()
-  .strict();
-
-/* ========= Type Exports ========= */
-export type Doctor = z.infer<typeof doctorSchema>;
-export type CreateDoctor = Omit<Doctor, 'id'>;
-export type UpdateDoctor = Partial<Omit<Doctor, 'id'>>;
+// TypeScript types inferred from Zod schemas
+export type Doctor = z.infer<typeof doctorSchema>
+export type CreateDoctor = z.infer<typeof createDoctorSchema>
+export type UpdateDoctor = z.infer<typeof updateDoctorSchema>

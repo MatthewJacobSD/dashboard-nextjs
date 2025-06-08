@@ -11,13 +11,22 @@ interface DialogProps {
   children: React.ReactNode;
   className?: string;
   title?: string;
+  autoClose?: number; // Time in milliseconds (e.g., 3000 for 3 seconds)
 }
 
 /* ===== Dialog Component ===== */
-export function Dialog({ open, onClose, children, className = '', title }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  children,
+  className = '',
+  title,
+  autoClose,
+}: DialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLElement | null>(null);
   const lastFocusableRef = useRef<HTMLElement | null>(null);
+  const timeoutRef = useRef<number | null>(null); // To store timeout ID
 
   /* Handle click outside to close */
   useEffect(() => {
@@ -30,13 +39,26 @@ export function Dialog({ open, onClose, children, className = '', title }: Dialo
     if (open) {
       document.addEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = 'hidden'; // Prevent scrolling
+
+      // Set auto-close timeout
+      if (autoClose) {
+        timeoutRef.current = window.setTimeout(() => {
+          onClose();
+        }, autoClose);
+      }
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.body.style.overflow = ''; // Restore scrolling
+
+      // Clear timeout on unmount or dialog close
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
-  }, [open, onClose]);
+  }, [open, onClose, autoClose]);
 
   /* Handle Escape key and focus trapping */
   useEffect(() => {

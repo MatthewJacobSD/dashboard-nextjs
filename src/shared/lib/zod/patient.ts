@@ -1,58 +1,45 @@
-import { z } from 'zod';
-import { commonFields } from './common';
-import { insuranceSchema } from './insurance';
+import { z } from 'zod'
+import { commonFields } from './common'
+import { insuranceSchema } from './insurance'
 
-/* ========= Patient Base Schema (without refinements) ========= */
-const patientBaseSchema = z.object({
-  firstName: commonFields.firstName,
-  lastName: commonFields.lastName,
-  postcode: z
-    .string({ description: 'Postal/ZIP code' })
-    .regex(/^[a-zA-Z0-9\- ]+$/, 'Invalid postcode format'),
-  address: commonFields.address,
-  phoneNumber: commonFields.phoneNumber,
-  email: commonFields.email,
-  isInsured: z.boolean({
-    description: 'Flag indicating if patient has insurance',
-    required_error: 'Insurance status is required'
-  }).default(false),
-  insuranceId: insuranceSchema.shape.id.optional(),
-}).strict();
+// Base schema for patient data
+export const patientSchema = z.object({
+  ...commonFields, // Spread common fields (e.g., id, other shared properties)
+  postcode: z.string(), // Define postcode field, must be a string
+  isInsured: z.boolean(), // Define isInsured field, must be a boolean
+  insuranceId: insuranceSchema.shape.id.optional(), // Define optional insuranceId field, referencing insurance schema
+})
 
-/* ========= Patient Refinement ========= */
-const patientRefinement = (data: z.infer<typeof patientBaseSchema>, ctx: z.RefinementCtx) => {
-  if (data.isInsured && !data.insuranceId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Insurance ID is required when patient is insured',
-      path: ['insuranceId'],
-    });
-  }
-};
-
-/* ========= Patient Schema ========= */
-export const patientSchema = patientBaseSchema
-  .extend({ id: commonFields.id })
-  .superRefine(patientRefinement);
-
-/* ========= Patient Create Schema ========= */
-export const createPatientSchema = patientBaseSchema.superRefine(patientRefinement);
-
-/* ========= Patient Update Schema ========= */
-export const updatePatientSchema = patientBaseSchema
-  .partial()
+// Schema for creating new patient, omitting id (auto-generated)
+export const createPatientSchema = patientSchema
+  .omit({ id: true })
   .superRefine((data, ctx) => {
-    // Only validate if isInsured is explicitly set to true
+    // Validate insuranceId requirement when isInsured is true
     if (data.isInsured === true && !data.insuranceId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Insurance ID is required when patient is insured',
         path: ['insuranceId'],
-      });
+      })
     }
-  });
+  })
 
-/* ========= Type Exports ========= */
-export type Patient = z.infer<typeof patientSchema>;
-export type CreatePatient = z.infer<typeof createPatientSchema>;
-export type UpdatePatient = z.infer<typeof updatePatientSchema>;
+// Schema for updating patient, all fields optional, no extra fields allowed
+export const updatePatientSchema = patientSchema
+  .partial() // Make all fields optional
+  .strict() // Prevent extra fields
+  .superRefine((data, ctx) => {
+    // Validate insuranceId requirement when isInsured is true
+    if (data.isInsured === true && !data.insuranceId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Insurance ID is required when patient is insured',
+        path: ['insuranceId'],
+      })
+    }
+  })
+
+// TypeScript types inferred from Zod schemas
+export type Patient = z.infer<typeof patientSchema> // Type for patient data
+export type CreatePatient = z.infer<typeof createPatientSchema> // Type for creating patient
+export type UpdatePatient = z.infer<typeof updatePatientSchema> // Type for updating patient

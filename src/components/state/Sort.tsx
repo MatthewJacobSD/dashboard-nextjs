@@ -1,21 +1,13 @@
 import { cn } from '@/shared/utils/cn';
-import { useEffect, useState } from 'react';
-import { DataDisplayField } from './DataDisplay';
+import type { DataDisplayField } from './DataDisplay';
 
 interface SortComponentProps<T> {
   fields: DataDisplayField<T>[];
-  onSortChange?: (sort: { key: keyof T; direction: 'asc' | 'desc' }) => void;
+  sort: { key: keyof T; direction: 'asc' | 'desc' } | null;
+  onSortChange?: (sort: { key: keyof T; direction: 'asc' | 'desc' } | null) => void;
 }
 
-export function SortComponent<T>({ fields, onSortChange }: SortComponentProps<T>) {
-  const [sort, setSort] = useState<{ key: keyof T; direction: 'asc' | 'desc' } | null>(null);
-
-  useEffect(() => {
-    if (onSortChange && sort) {
-      onSortChange(sort);
-    }
-  }, [sort, onSortChange]);
-
+export function SortComponent<T>({ fields, sort, onSortChange }: SortComponentProps<T>) {
   return (
     <div
       className={cn(
@@ -31,11 +23,11 @@ export function SortComponent<T>({ fields, onSortChange }: SortComponentProps<T>
           onChange={(e) => {
             const val = e.target.value;
             if (!val) {
-              setSort(null);
+              onSortChange?.(null);
               return;
             }
             const [key, direction] = val.split('-');
-            setSort({ key: key as keyof T, direction: direction as 'asc' | 'desc' });
+            onSortChange?.({ key: key as keyof T, direction: direction as 'asc' | 'desc' });
           }}
           className={cn(
             'bg-gray-900 text-white border border-gray-600 rounded-md px-3 py-1.5',
@@ -61,7 +53,7 @@ export function SortComponent<T>({ fields, onSortChange }: SortComponentProps<T>
       {/* Clear Button */}
       {sort && (
         <button
-          onClick={() => setSort(null)}
+          onClick={() => onSortChange?.(null)}
           className={cn(
             'text-gray-400 hover:text-orange-400 hover:bg-gray-900',
             'px-3 py-1.5 rounded-md transition-all duration-200 hover:scale-105',

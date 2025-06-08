@@ -68,6 +68,24 @@ type OptimisticUpdate =
   | { type: "update"; doctor: Doctor }
   | { type: "delete"; id: string };
 
+// Define return type for the hook
+interface UseDoctorsReturn {
+  doctors: Doctor[];
+  isLoading: boolean;
+  error: string | null;
+  page: number;
+  size: number;
+  setPage: (newPage: number, newPageSize: number) => void;
+  totPages: number;
+  selectedEntity: Doctor | null;
+  setSelectedEntity: (doctor: Doctor | null) => void;
+  createFormAction: (formData: FormData) => void;
+  updateFormAction: (formData: FormData) => void;
+  handleDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  createState: ActionState;
+  updateState: ActionState;
+}
+
 /* ===== Utility Functions ===== */
 
 /**
@@ -138,7 +156,7 @@ export function useDoctors({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
-}: UseDoctorsProps) {
+}: UseDoctorsProps): UseDoctorsReturn {
   /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
@@ -181,9 +199,10 @@ export function useDoctors({
         experience: validation.data.experience,
       };
 
-      startTransition(() =>
-        setOptimisticDoctors({ type: "add", doctor: optimisticDoctor })
-      );
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticDoctors({ type: "add", doctor: optimisticDoctor });
+      });
 
       try {
         const response = await createDoctor(formData);
@@ -194,17 +213,23 @@ export function useDoctors({
           console.log(
             `${EMOJI.ERROR} Failed to create doctor: ${errorMessage}`
           );
-          setOptimisticDoctors({ type: "delete", id: tempId });
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticDoctors({ type: "delete", id: tempId });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          doctors: [
-            ...prev.doctors.filter((doctor) => doctor.id !== tempId),
-            response.data,
-          ],
-        }));
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            doctors: [
+              ...prev.doctors.filter((doctor) => doctor.id !== tempId),
+              response.data,
+            ],
+          }));
+        });
 
         console.log(
           `${EMOJI.SUCCESS} Doctor created successfully! ID: ${response.data.id}`
@@ -213,7 +238,10 @@ export function useDoctors({
 
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticDoctors({ type: "delete", id: tempId });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticDoctors({ type: "delete", id: tempId });
+        });
         return handleActionError(error);
       }
     },
@@ -250,9 +278,10 @@ export function useDoctors({
         ...validation.data,
       };
 
-      startTransition(() =>
-        setOptimisticDoctors({ type: "update", doctor: optimisticDoctor })
-      );
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticDoctors({ type: "update", doctor: optimisticDoctor });
+      });
 
       try {
         const response = await updateDoctor(state.selectedEntity.id, formData);
@@ -263,17 +292,23 @@ export function useDoctors({
           console.log(
             `${EMOJI.ERROR} Failed to update doctor ${state.selectedEntity.id}: ${errorMessage}`
           );
-          setOptimisticDoctors({ type: "update", doctor: prevDoctor });
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticDoctors({ type: "update", doctor: prevDoctor });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          doctors: prev.doctors.map((d) =>
-            d.id === state.selectedEntity?.id ? response.data : d
-          ),
-          selectedEntity: null,
-        }));
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            doctors: prev.doctors.map((d) =>
+              d.id === state.selectedEntity?.id ? response.data : d
+            ),
+            selectedEntity: null,
+          }));
+        });
 
         console.log(
           `${EMOJI.SUCCESS} Doctor ${state.selectedEntity.id} updated successfully!`
@@ -282,7 +317,10 @@ export function useDoctors({
 
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticDoctors({ type: "update", doctor: prevDoctor });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticDoctors({ type: "update", doctor: prevDoctor });
+        });
         return handleActionError(error);
       }
     },
@@ -426,8 +464,6 @@ export function useDoctors({
     doctors: optimisticDoctors,
     isLoading,
     error: state.error || createState.error || updateState.error,
-    fieldErrors:
-      state.fieldErrors || createState.fieldErrors || updateState.fieldErrors,
     page,
     size,
     setPage: handlePagination,
@@ -438,5 +474,7 @@ export function useDoctors({
     createFormAction,
     updateFormAction,
     handleDelete,
+    createState,
+    updateState,
   };
 }

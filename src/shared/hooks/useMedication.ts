@@ -10,33 +10,39 @@ import {
   useMemo,
 } from "react";
 import { toast } from "react-toastify";
+
+// Zod Schemas
 import {
   createMedicationSchema,
   Medication,
   updateMedicationSchema,
 } from "@/shared/lib/zod/medication";
+
+// API Actions
 import {
   createMedication,
   deleteMedication,
   fetchMedications,
   updateMedication,
 } from "@/app/medications/actions";
-import { z } from "zod";
-import { debounce } from "../utils/debounce";
 
-/* ====== Constants ====== */
+// Utils
+import { debounce } from "../utils/debounce";
+import z from "zod";
+
+/* ===== Constants ===== */
 const EMOJI = {
-  SUCCESS: '🔥',
-  ERROR: '♨️',
+  SUCCESS: "🔥",
+  ERROR: "♨️",
   OPERATION: {
-    CREATE: '🆕',
-    UPDATE: '♻️',
-    DELETE: '🗑️',
-    FETCH: '🔍'
-  }
+    CREATE: "🆕",
+    UPDATE: "♻️",
+    DELETE: "🗑️",
+    FETCH: "🔍",
+  },
 } as const;
 
-/* ====== Types ====== */
+/* ===== Types ===== */
 interface UseMedicationsProps {
   initialData?: Medication[];
   page?: number;
@@ -50,7 +56,7 @@ interface MedicationState {
   selectedEntity: Medication | null;
 }
 
-interface ActionState {
+export interface ActionState {
   success: boolean;
   error: string | null;
   fieldErrors?: Record<string, string[]>;
@@ -62,7 +68,26 @@ type OptimisticUpdate =
   | { type: "update"; medication: Medication }
   | { type: "delete"; id: string };
 
+// Define return type for the hook
+interface UseMedicationsReturn {
+  medications: Medication[];
+  isLoading: boolean;
+  error: string | null;
+  page: number;
+  size: number;
+  setPage: (newPage: number, newPageSize: number) => void;
+  totPages: number;
+  selectedEntity: Medication | null;
+  setSelectedEntity: (medication: Medication | null) => void;
+  createFormAction: (formData: FormData) => void;
+  updateFormAction: (formData: FormData) => void;
+  handleDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  createState: ActionState;
+  updateState: ActionState;
+}
+
 /* ===== Utility Functions ===== */
+
 /**
  * Handles errors from actions and returns standardized error state
  */
@@ -86,9 +111,11 @@ function handleActionError(error: unknown | z.ZodError): {
       ),
     };
   }
+
   const errorMsg = `${EMOJI.ERROR} ${error instanceof Error ? error.message : "Operation failed"}`;
   console.error(errorMsg);
   toast.error(errorMsg);
+
   return { success: false, error: errorMsg };
 }
 
@@ -103,26 +130,34 @@ function optimisticMedicationUpdate(
     case "add":
       console.log(`${EMOJI.OPERATION.CREATE} Optimistically adding medication`);
       return [...medications, update.medication];
+
     case "update":
-      console.log(`${EMOJI.OPERATION.UPDATE} Optimistically updating medication ${update.medication.id}`);
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Optimistically updating medication ${update.medication.id}`
+      );
       return medications.map((medication) =>
         medication.id === update.medication.id ? update.medication : medication
       );
+
     case "delete":
-      console.log(`${EMOJI.OPERATION.DELETE} Optimistically deleting medication ${update.id}`);
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Optimistically deleting medication ${update.id}`
+      );
       return medications.filter((medication) => medication.id !== update.id);
+
     default:
       return medications;
   }
 }
 
-/* ======= Hook ====== */
+/* ===== Hook Definition ===== */
+
 export function useMedications({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
-}: UseMedicationsProps) {
-  /* ====== States ====== */
+}: UseMedicationsProps): UseMedicationsReturn {
+  /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
   const [totPages, setTotPages] = useState(1);
@@ -133,17 +168,25 @@ export function useMedications({
     selectedEntity: null,
   });
 
-  /* ======= Form Actions ======== */
+  const [optimisticMedications, setOptimisticMedications] = useOptimistic(
+    state.medications,
+    optimisticMedicationUpdate
+  );
+
+  /* ===== Form Actions ===== */
+
+  // Create Medication
   const [createState, createFormAction, createPending] = useActionState(
     async (
       _prevState: ActionState,
       formData: FormData
     ): Promise<ActionState> => {
       console.log(`${EMOJI.OPERATION.CREATE} Creating new medication...`);
-      
+
       const validation = createMedicationSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -153,36 +196,57 @@ export function useMedications({
         id: tempId,
         ...validation.data,
       };
-      setOptimisticMedications({ type: "add", medication: optimisticMedication });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticMedications({ type: "add", medication: optimisticMedication });
+      });
 
       try {
         const response = await createMedication(formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to create medication";
-          console.log(`${EMOJI.ERROR} Failed to create medication: ${errorMessage}`);
-          setOptimisticMedications({ type: "delete", id: tempId });
+          const errorMessage =
+            response.status.message || "Failed to create medication";
+          console.log(
+            `${EMOJI.ERROR} Failed to create medication: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticMedications({ type: "delete", id: tempId });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          medications: [
-            ...prev.medications.filter((medication) => medication.id !== tempId),
-            response.data,
-          ],
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Medication created successfully! ID: ${response.data.id}`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            medications: [
+              ...prev.medications.filter((medication) => medication.id !== tempId),
+              response.data,
+            ],
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Medication created successfully! ID: ${response.data.id}`
+        );
         toast.success("Medication created successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticMedications({ type: "delete", id: tempId });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticMedications({ type: "delete", id: tempId });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
+  // Update Medication
   const [updateState, updateFormAction, updatePending] = useActionState(
     async (
       _prevState: ActionState,
@@ -194,11 +258,14 @@ export function useMedications({
         return handleActionError(new Error(errorMsg));
       }
 
-      console.log(`${EMOJI.OPERATION.UPDATE} Updating medication ${state.selectedEntity.id}...`);
-      
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Updating medication ${state.selectedEntity.id}...`
+      );
+
       const validation = updateMedicationSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -208,53 +275,66 @@ export function useMedications({
         ...state.selectedEntity,
         ...validation.data,
       };
-      setOptimisticMedications({ type: "update", medication: optimisticMedication });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticMedications({ type: "update", medication: optimisticMedication });
+      });
 
       try {
         const response = await updateMedication(state.selectedEntity.id, formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to update medication";
-          console.log(`${EMOJI.ERROR} Failed to update medication ${state.selectedEntity.id}: ${errorMessage}`);
-          setOptimisticMedications({ type: "update", medication: prevMedication });
+          const errorMessage =
+            response.status.message || "Failed to update medication";
+          console.log(
+            `${EMOJI.ERROR} Failed to update medication ${state.selectedEntity.id}: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticMedications({ type: "update", medication: prevMedication });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          medications: prev.medications.map((d) =>
-            d.id === state.selectedEntity?.id ? response.data : d
-          ),
-          selectedEntity: null,
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Medication ${state.selectedEntity.id} updated successfully!`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            medications: prev.medications.map((d) =>
+              d.id === state.selectedEntity?.id ? response.data : d
+            ),
+            selectedEntity: null,
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Medication ${state.selectedEntity.id} updated successfully!`
+        );
         toast.success("Medication updated successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticMedications({ type: "update", medication: prevMedication });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticMedications({ type: "update", medication: prevMedication });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
-  const [optimisticMedications, setOptimisticMedications] = useOptimistic(
-    state.medications,
-    optimisticMedicationUpdate
-  );
+  /* ===== Fetch Medications ===== */
 
-  /* ======= Memoized Values ======== */
-  const isLoading = useMemo(
-    () => isPending || createPending || updatePending,
-    [isPending, createPending, updatePending]
-  );
-
-  /* ======= Fetch Medications ======== */
   const loadMedications = useCallback(async (page: number, size: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Fetching medications (page ${page}, size ${size})...`);
-    
+    console.log(
+      `${EMOJI.OPERATION.FETCH} Fetching medications (page ${page}, size ${size})...`
+    );
+
     try {
       const response = await fetchMedications(page, size);
+
       if (!response.success) {
         throw new Error(response.status.message || "Failed to fetch medications");
       }
@@ -266,18 +346,23 @@ export function useMedications({
         selectedEntity: null,
       }));
       setTotPages(response.data.totalPages || 1);
-      
-      console.log(`${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} medications`);
+
+      console.log(
+        `${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} medications`
+      );
     } catch (error) {
-      const errorMessage =
+      const errorMessage = `${EMOJI.ERROR} ${
         error instanceof Error
-          ? `${EMOJI.ERROR} ${error.message}`
-          : `${EMOJI.ERROR} An error occurred while fetching medications.`;
+          ? error.message
+          : "An error occurred while fetching medications."
+      }`;
+
       setState((prev) => ({
         ...prev,
         error: errorMessage,
         selectedEntity: null,
       }));
+
       console.error(errorMessage);
       toast.error(errorMessage);
     }
@@ -285,35 +370,26 @@ export function useMedications({
 
   useEffect(() => {
     const abortController = new AbortController();
+
     startTransition(() => {
       loadMedications(page, size);
     });
+
     return () => abortController.abort();
   }, [page, size, loadMedications]);
 
-  /* ======= Window Resize (Debounced) ======== */
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
-      console.log(`${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`);
-      setSize(newSize);
-    };
-    const debouncedResize = debounce(handleResize, 250);
-    window.addEventListener("resize", debouncedResize);
-    return () => window.removeEventListener("resize", debouncedResize);
-  }, []);
+  /* ===== Delete Medication ===== */
 
-  /* ======= Delete Medication (With Rollback) ======== */
   const handleDelete = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       console.log(`${EMOJI.OPERATION.DELETE} Deleting medication ${id}...`);
-      
-      const prevMedications = state.medications;
-      setOptimisticMedications({ type: "delete", id });
+
+      const prevMedications = [...state.medications];
+      startTransition(() => setOptimisticMedications({ type: "delete", id }));
 
       try {
         const response = await deleteMedication(id);
+
         if (!response.success) {
           throw new Error(response.status.message || "Failed to delete medication");
         }
@@ -322,35 +398,70 @@ export function useMedications({
           ...prev,
           medications: prev.medications.filter((medication) => medication.id !== id),
         }));
-        
+
         console.log(`${EMOJI.SUCCESS} Medication ${id} deleted successfully!`);
         toast.success("Medication deleted successfully");
+
         return { success: true };
       } catch (error) {
         console.log(`${EMOJI.ERROR} Failed to delete medication ${id}`);
+
         setState((prev) => ({ ...prev, medications: prevMedications }));
         const errorResult = handleActionError(error);
+
         return { success: false, error: errorResult.error };
       }
     },
     [state.medications, setOptimisticMedications]
   );
 
-  /* ======= Pagination ======== */
-  const handlePagination = (newPage: number, newPageSize: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`);
-    startTransition(() => {
-      setPage(newPage);
-      setSize(newPageSize);
-    });
-  };
+  /* ===== Resize Handling ===== */
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
+
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`
+      );
+      setSize(newSize);
+    };
+
+    const debouncedResize = debounce(handleResize, 250);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  }, []);
+
+  /* ===== Pagination ===== */
+
+  const handlePagination = useCallback(
+    (newPage: number, newPageSize: number) => {
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`
+      );
+      startTransition(() => {
+        setPage(newPage);
+        setSize(newPageSize);
+      });
+    },
+    []
+  );
+
+  /* ===== Derived Values ===== */
+
+  const isLoading = useMemo(
+    () => isPending || createPending || updatePending,
+    [isPending, createPending, updatePending]
+  );
+
+  /* ===== Exposed Return Values ===== */
 
   return {
     medications: optimisticMedications,
     isLoading,
     error: state.error || createState.error || updateState.error,
-    fieldErrors:
-      state.fieldErrors || createState.fieldErrors || updateState.fieldErrors,
     page,
     size,
     setPage: handlePagination,
@@ -361,5 +472,7 @@ export function useMedications({
     createFormAction,
     updateFormAction,
     handleDelete,
+    createState,
+    updateState,
   };
 }

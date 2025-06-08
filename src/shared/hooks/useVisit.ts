@@ -1,4 +1,4 @@
-"use client";
+'use client'
 
 import {
   useState,
@@ -10,33 +10,39 @@ import {
   useMemo,
 } from "react";
 import { toast } from "react-toastify";
+
+// Zod Schemas
 import {
   createVisitSchema,
   Visit,
   updateVisitSchema,
 } from "@/shared/lib/zod/visit";
+
+// API Actions
 import {
   createVisit,
   deleteVisit,
   fetchVisits,
   updateVisit,
 } from "@/app/visits/actions";
-import { z } from "zod";
-import { debounce } from "../utils/debounce";
 
-/* ====== Constants ====== */
+// Utils
+import { debounce } from "../utils/debounce";
+import z from "zod";
+
+/* ===== Constants ===== */
 const EMOJI = {
-  SUCCESS: '🔥',
-  ERROR: '♨️',
+  SUCCESS: "🔥",
+  ERROR: "♨️",
   OPERATION: {
-    CREATE: '🆕',
-    UPDATE: '♻️',
-    DELETE: '🗑️',
-    FETCH: '🔍'
-  }
+    CREATE: "🆕",
+    UPDATE: "♻️",
+    DELETE: "🗑️",
+    FETCH: "🔍",
+  },
 } as const;
 
-/* ====== Types ====== */
+/* ===== Types ===== */
 interface UseVisitsProps {
   initialData?: Visit[];
   page?: number;
@@ -50,7 +56,7 @@ interface VisitState {
   selectedEntity: Visit | null;
 }
 
-interface ActionState {
+export interface ActionState {
   success: boolean;
   error: string | null;
   fieldErrors?: Record<string, string[]>;
@@ -60,9 +66,27 @@ interface ActionState {
 type OptimisticUpdate =
   | { type: "add"; visit: Visit }
   | { type: "update"; visit: Visit }
-  | { type: "delete"; id: string };
+  | { type: "delete"; compositeKey: { patientId: string; doctorId: string; visitDate: string } };
+
+interface UseVisitsReturn {
+  visits: Visit[];
+  isLoading: boolean;
+  error: string | null;
+  page: number;
+  size: number;
+  setPage: (newPage: number, newPageSize: number) => void;
+  totPages: number;
+  selectedEntity: Visit | null;
+  setSelectedEntity: (visit: Visit | null) => void;
+  createFormAction: (formData: FormData) => void;
+  updateFormAction: (formData: FormData) => void;
+  handleDelete: (compositeKey: { patientId: string; doctorId: string; visitDate: string }) => Promise<{ success: boolean; error?: string }>;
+  createState: ActionState;
+  updateState: ActionState;
+}
 
 /* ===== Utility Functions ===== */
+
 /**
  * Handles errors from actions and returns standardized error state
  */
@@ -86,10 +110,23 @@ function handleActionError(error: unknown | z.ZodError): {
       ),
     };
   }
+
   const errorMsg = `${EMOJI.ERROR} ${error instanceof Error ? error.message : "Operation failed"}`;
   console.error(errorMsg);
   toast.error(errorMsg);
+
   return { success: false, error: errorMsg };
+}
+
+/**
+ * Generates a temporary composite key for optimistic updates
+ */
+function generateTempCompositeKey(): { patientId: string; doctorId: string; visitDate: string } {
+  return {
+    patientId: `temp-${crypto.randomUUID()}`,
+    doctorId: `temp-${crypto.randomUUID()}`,
+    visitDate: new Date().toISOString(),
+  };
 }
 
 /**
@@ -103,26 +140,45 @@ function optimisticVisitUpdate(
     case "add":
       console.log(`${EMOJI.OPERATION.CREATE} Optimistically adding visit`);
       return [...visits, update.visit];
+
     case "update":
-      console.log(`${EMOJI.OPERATION.UPDATE} Optimistically updating visit ${update.visit.id}`);
-      return visits.map((visit) =>
-        visit.id === update.visit.id ? update.visit : visit
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Optimistically updating visit for patient ${update.visit.patientId}, doctor ${update.visit.doctorId}, date ${update.visit.visitDate}`
       );
+      return visits.map((visit) =>
+        visit.patientId === update.visit.patientId &&
+        visit.doctorId === update.visit.doctorId &&
+        visit.visitDate.toISOString() === update.visit.visitDate.toISOString()
+          ? update.visit
+          : visit
+      );
+
     case "delete":
-      console.log(`${EMOJI.OPERATION.DELETE} Optimistically deleting visit ${update.id}`);
-      return visits.filter((visit) => visit.id !== update.id);
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Optimistically deleting visit for patient ${update.compositeKey.patientId}, doctor ${update.compositeKey.doctorId}, date ${update.compositeKey.visitDate}`
+      );
+      return visits.filter(
+        (visit) =>
+          !(
+            visit.patientId === update.compositeKey.patientId &&
+            visit.doctorId === update.compositeKey.doctorId &&
+            visit.visitDate.toISOString() === update.compositeKey.visitDate
+          )
+      );
+
     default:
       return visits;
   }
 }
 
-/* ======= Hook ====== */
+/* ===== Hook Definition ===== */
+
 export function useVisits({
   initialData,
   page: initialPage = 1,
   size: initialSize = 10,
-}: UseVisitsProps) {
-  /* ====== States ====== */
+}: UseVisitsProps): UseVisitsReturn {
+  /* ===== State Management ===== */
   const [page, setPage] = useState(initialPage);
   const [size, setSize] = useState(initialSize);
   const [totPages, setTotPages] = useState(1);
@@ -133,56 +189,100 @@ export function useVisits({
     selectedEntity: null,
   });
 
-  /* ======= Form Actions ======== */
+  const [optimisticVisits, setOptimisticVisits] = useOptimistic(
+    state.visits,
+    optimisticVisitUpdate
+  );
+
+  /* ===== Form Actions ===== */
+
+  // Create Visit
   const [createState, createFormAction, createPending] = useActionState(
     async (
       _prevState: ActionState,
       formData: FormData
     ): Promise<ActionState> => {
       console.log(`${EMOJI.OPERATION.CREATE} Creating new visit...`);
-      
+
       const validation = createVisitSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
 
-      const tempId = `temp-${crypto.randomUUID()}`;
+      const tempCompositeKey = generateTempCompositeKey();
       const optimisticVisit: Visit = {
-        id: tempId,
         ...validation.data,
+        patientId: tempCompositeKey.patientId,
+        doctorId: tempCompositeKey.doctorId,
+        visitDate: new Date(tempCompositeKey.visitDate),
       };
-      setOptimisticVisits({ type: "add", visit: optimisticVisit });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticVisits({ type: "add", visit: optimisticVisit });
+      });
 
       try {
         const response = await createVisit(formData);
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to create visit";
-          console.log(`${EMOJI.ERROR} Failed to create visit: ${errorMessage}`);
-          setOptimisticVisits({ type: "delete", id: tempId });
+          const errorMessage =
+            response.status.message || "Failed to create visit";
+          console.log(
+            `${EMOJI.ERROR} Failed to create visit: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticVisits({
+              type: "delete",
+              compositeKey: tempCompositeKey,
+            });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          visits: [
-            ...prev.visits.filter((visit) => visit.id !== tempId),
-            response.data,
-          ],
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Visit created successfully! ID: ${response.data.id}`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            visits: [
+              ...prev.visits.filter(
+                (visit) =>
+                  !(
+                    visit.patientId === tempCompositeKey.patientId &&
+                    visit.doctorId === tempCompositeKey.doctorId &&
+                    visit.visitDate.toISOString() === tempCompositeKey.visitDate
+                  )
+              ),
+              response.data,
+            ],
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Visit created successfully for patient ${response.data.patientId}, doctor ${response.data.doctorId}, date ${response.data.visitDate}`
+        );
         toast.success("Visit created successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticVisits({ type: "delete", id: tempId });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticVisits({
+            type: "delete",
+            compositeKey: tempCompositeKey,
+          });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
+  // Update Visit
   const [updateState, updateFormAction, updatePending] = useActionState(
     async (
       _prevState: ActionState,
@@ -194,11 +294,14 @@ export function useVisits({
         return handleActionError(new Error(errorMsg));
       }
 
-      console.log(`${EMOJI.OPERATION.UPDATE} Updating visit ${state.selectedEntity.id}...`);
-      
+      console.log(
+        `${EMOJI.OPERATION.UPDATE} Updating visit for patient ${state.selectedEntity.patientId}, doctor ${state.selectedEntity.doctorId}, date ${state.selectedEntity.visitDate}...`
+      );
+
       const validation = updateVisitSchema.safeParse(
         Object.fromEntries(formData)
       );
+
       if (!validation.success) {
         return handleActionError(validation.error);
       }
@@ -208,53 +311,77 @@ export function useVisits({
         ...state.selectedEntity,
         ...validation.data,
       };
-      setOptimisticVisits({ type: "update", visit: optimisticVisit });
+
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticVisits({ type: "update", visit: optimisticVisit });
+      });
 
       try {
-        const response = await updateVisit(state.selectedEntity.id, formData);
+        const response = await updateVisit(
+          {
+            patientId: state.selectedEntity.patientId,
+            doctorId: state.selectedEntity.doctorId,
+            visitDate: state.selectedEntity.visitDate.toISOString(),
+          } as unknown as string,
+          formData
+        );
+
         if (!response.success) {
-          const errorMessage = response.status.message || "Failed to update visit";
-          console.log(`${EMOJI.ERROR} Failed to update visit ${state.selectedEntity.id}: ${errorMessage}`);
-          setOptimisticVisits({ type: "update", visit: prevVisit });
+          const errorMessage =
+            response.status.message || "Failed to update visit";
+          console.log(
+            `${EMOJI.ERROR} Failed to update visit: ${errorMessage}`
+          );
+          // Rollback optimistic update in transition
+          startTransition(() => {
+            setOptimisticVisits({ type: "update", visit: prevVisit });
+          });
           return handleActionError(new Error(errorMessage));
         }
 
-        setState((prev) => ({
-          ...prev,
-          visits: prev.visits.map((d) =>
-            d.id === state.selectedEntity?.id ? response.data : d
-          ),
-          selectedEntity: null,
-        }));
-        
-        console.log(`${EMOJI.SUCCESS} Visit ${state.selectedEntity.id} updated successfully!`);
+        // Update state in transition
+        startTransition(() => {
+          setState((prev) => ({
+            ...prev,
+            visits: prev.visits.map((d) =>
+              d.patientId === state.selectedEntity?.patientId &&
+              d.doctorId === state.selectedEntity?.doctorId &&
+              d.visitDate.toISOString() === state.selectedEntity?.visitDate.toISOString()
+                ? response.data
+                : d
+            ),
+            selectedEntity: null,
+          }));
+        });
+
+        console.log(
+          `${EMOJI.SUCCESS} Visit updated successfully for patient ${state.selectedEntity.patientId}, doctor ${state.selectedEntity.doctorId}, date ${state.selectedEntity.visitDate}`
+        );
         toast.success("Visit updated successfully");
+
         return { success: true, data: response.data, error: null };
       } catch (error) {
-        setOptimisticVisits({ type: "update", visit: prevVisit });
+        // Rollback optimistic update in transition
+        startTransition(() => {
+          setOptimisticVisits({ type: "update", visit: prevVisit });
+        });
         return handleActionError(error);
       }
     },
     { success: false, error: null, fieldErrors: {} }
   );
 
-  const [optimisticVisits, setOptimisticVisits] = useOptimistic(
-    state.visits,
-    optimisticVisitUpdate
-  );
+  /* ===== Fetch Visits ===== */
 
-  /* ======= Memoized Values ======== */
-  const isLoading = useMemo(
-    () => isPending || createPending || updatePending,
-    [isPending, createPending, updatePending]
-  );
-
-  /* ======= Fetch Visits ======== */
   const loadVisits = useCallback(async (page: number, size: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Fetching visits (page ${page}, size ${size})...`);
-    
+    console.log(
+      `${EMOJI.OPERATION.FETCH} Fetching visits (page ${page}, size ${size})...`
+    );
+
     try {
       const response = await fetchVisits(page, size);
+
       if (!response.success) {
         throw new Error(response.status.message || "Failed to fetch visits");
       }
@@ -266,18 +393,23 @@ export function useVisits({
         selectedEntity: null,
       }));
       setTotPages(response.data.totalPages || 1);
-      
-      console.log(`${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} visits`);
+
+      console.log(
+        `${EMOJI.SUCCESS} Fetched ${response.data.items?.length || 0} visits`
+      );
     } catch (error) {
-      const errorMessage =
+      const errorMessage = `${EMOJI.ERROR} ${
         error instanceof Error
-          ? `${EMOJI.ERROR} ${error.message}`
-          : `${EMOJI.ERROR} An error occurred while fetching visits.`;
+          ? error.message
+          : "An error occurred while fetching visits."
+      }`;
+
       setState((prev) => ({
         ...prev,
         error: errorMessage,
         selectedEntity: null,
       }));
+
       console.error(errorMessage);
       toast.error(errorMessage);
     }
@@ -285,72 +417,111 @@ export function useVisits({
 
   useEffect(() => {
     const abortController = new AbortController();
+
     startTransition(() => {
       loadVisits(page, size);
     });
+
     return () => abortController.abort();
   }, [page, size, loadVisits]);
 
-  /* ======= Window Resize (Debounced) ======== */
-  useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
-      console.log(`${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`);
-      setSize(newSize);
-    };
-    const debouncedResize = debounce(handleResize, 250);
-    window.addEventListener("resize", debouncedResize);
-    return () => window.removeEventListener("resize", debouncedResize);
-  }, []);
+  /* ===== Delete Visit ===== */
 
-  /* ======= Delete Visit (With Rollback) ======== */
   const handleDelete = useCallback(
-    async (id: string): Promise<{ success: boolean; error?: string }> => {
-      console.log(`${EMOJI.OPERATION.DELETE} Deleting visit ${id}...`);
-      
-      const prevVisits = state.visits;
-      setOptimisticVisits({ type: "delete", id });
+    async (compositeKey: { patientId: string; doctorId: string; visitDate: string }): Promise<{ success: boolean; error?: string }> => {
+      console.log(
+        `${EMOJI.OPERATION.DELETE} Deleting visit for patient ${compositeKey.patientId}, doctor ${compositeKey.doctorId}, date ${compositeKey.visitDate}...`
+      );
+
+      const prevVisits = [...state.visits];
+      startTransition(() => setOptimisticVisits({ type: "delete", compositeKey }));
 
       try {
-        const response = await deleteVisit(id);
+        const response = await deleteVisit(compositeKey);
+
         if (!response.success) {
           throw new Error(response.status.message || "Failed to delete visit");
         }
 
         setState((prev) => ({
           ...prev,
-          visits: prev.visits.filter((visit) => visit.id !== id),
+          visits: prev.visits.filter(
+            (visit) =>
+              !(
+                visit.patientId === compositeKey.patientId &&
+                visit.doctorId === compositeKey.doctorId &&
+                visit.visitDate.toISOString() === compositeKey.visitDate
+              )
+          ),
         }));
-        
-        console.log(`${EMOJI.SUCCESS} Visit ${id} deleted successfully!`);
+
+        console.log(
+          `${EMOJI.SUCCESS} Visit deleted successfully for patient ${compositeKey.patientId}, doctor ${compositeKey.doctorId}, date ${compositeKey.visitDate}`
+        );
         toast.success("Visit deleted successfully");
+
         return { success: true };
       } catch (error) {
-        console.log(`${EMOJI.ERROR} Failed to delete visit ${id}`);
+        console.log(
+          `${EMOJI.ERROR} Failed to delete visit for patient ${compositeKey.patientId}, doctor ${compositeKey.doctorId}, date ${compositeKey.visitDate}`
+        );
+
         setState((prev) => ({ ...prev, visits: prevVisits }));
         const errorResult = handleActionError(error);
+
         return { success: false, error: errorResult.error };
       }
     },
-    [state.visits, setOptimisticVisits]
+    [state.visits]
   );
 
-  /* ======= Pagination ======== */
-  const handlePagination = (newPage: number, newPageSize: number) => {
-    console.log(`${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`);
-    startTransition(() => {
-      setPage(newPage);
-      setSize(newPageSize);
-    });
-  };
+  /* ===== Resize Handling ===== */
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const newSize = width < 640 ? 5 : width < 1024 ? 10 : 15;
+
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Resizing to ${newSize} items per page`
+      );
+      setSize(newSize);
+    };
+
+    const debouncedResize = debounce(handleResize, 250);
+    window.addEventListener("resize", debouncedResize);
+
+    return () => window.removeEventListener("resize", debouncedResize);
+  }, []);
+
+  /* ===== Pagination ===== */
+
+  const handlePagination = useCallback(
+    (newPage: number, newPageSize: number) => {
+      console.log(
+        `${EMOJI.OPERATION.FETCH} Changing to page ${newPage} with ${newPageSize} items`
+      );
+      startTransition(() => {
+        setPage(newPage);
+        setSize(newPageSize);
+      });
+    },
+    []
+  );
+
+  /* ===== Derived Values ===== */
+
+  const isLoading = useMemo(
+    () => isPending || createPending || updatePending,
+    [isPending, createPending, updatePending]
+  );
+
+  /* ===== Exposed Return Values ===== */
 
   return {
     visits: optimisticVisits,
     isLoading,
     error: state.error || createState.error || updateState.error,
-    fieldErrors:
-      state.fieldErrors || createState.fieldErrors || updateState.fieldErrors,
     page,
     size,
     setPage: handlePagination,
@@ -361,5 +532,7 @@ export function useVisits({
     createFormAction,
     updateFormAction,
     handleDelete,
+    createState,
+    updateState,
   };
 }

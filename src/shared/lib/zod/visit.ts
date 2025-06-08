@@ -1,48 +1,26 @@
-import { z } from 'zod';
-import { commonFields } from './common';
-import { doctorSchema } from './doctor';
+import { z } from 'zod'
 
-/* ========= Composite Key ========= */
-const compositeKeySchema = z.object({
-  patientId: commonFields.id,
-  doctorId: doctorSchema.shape.id,
-  visitDate: z.coerce.date({
-    description: 'Date of the patient visit',
-    required_error: 'Visit date is required',
-    invalid_type_error: 'Invalid date format'
-  }),
-}).strict();
+/* ===== Composite Key Schema ===== */
+export const compositeKeySchema = z.object({
+  patientId: z.string().min(1, 'Patient ID is required'),
+  doctorId: z.string().min(1, 'Doctor ID is required'),
+  visitDate: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
+});
 
-/* ========= Visit Base Schema ========= */
-export const visitBaseSchema = z.object({
+export const visitSchema = z.object({
+  ...compositeKeySchema.shape,
   symptoms: z
     .string({ description: 'Patient-reported symptoms' })
     .min(10, 'Symptoms description must be at least 10 characters')
     .max(1000, 'Symptoms description cannot exceed 1000 characters')
     .trim(),
-  diagnosis: z.number({
-    description: 'Diagnosis code (ICD-10 recommended)',
-    required_error: 'Diagnosis code is required',
-    invalid_type_error: 'Diagnosis must be a numeric code'
-  }).int('Diagnosis code must be an integer'),
-}).strict();
+  diagnosis: z.number(),
+})
 
-/* ========= Visit Schema ========= */
-export const visitSchema = visitBaseSchema.merge(compositeKeySchema).extend({
-  id: commonFields.id,
-}).strict();
+export const createVisitSchema = visitSchema;
 
-/* ========= Visit Create Schema ========= */
-export const createVisitSchema = visitSchema.omit({ id: true });
+export const updateVisitSchema = visitSchema.partial().strict()
 
-/* ========= Visit Update Schema ========= */
-export const updateVisitSchema = visitSchema
-  .omit({ id: true })
-  .partial()
-  .extend({ id: commonFields.id })
-  .strict();
-
-/* ========= Type Exports ========= */
-export type Visit = z.infer<typeof visitSchema>;
-export type CreateVisit = Omit<Visit, 'id'>;
-export type UpdateVisit = Partial<Omit<Visit, 'id'>> & { id: string };
+export type Visit = z.infer<typeof visitSchema>
+export type CreateVisit = z.infer<typeof createVisitSchema>
+export type UpdateVisit = z.infer<typeof updateVisitSchema>

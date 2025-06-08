@@ -15,7 +15,7 @@ export interface DataDisplayField<T> {
   render?: (value: T[keyof T], item: T) => React.ReactNode;
 }
 
-export interface DataDisplayProps<T extends { id: string }> {
+export interface DataDisplayProps<T extends { id: string | Record<string, unknown> }> {
   data: T[];
   isLoading?: boolean;
   onEdit: (item: T) => void;

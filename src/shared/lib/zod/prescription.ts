@@ -1,91 +1,82 @@
-import { z } from 'zod';
-import { commonFields } from './common';
-import { medicationSchema } from './medication';
-import { doctorSchema } from './doctor';
+import { z } from 'zod'
+import { commonFields } from './common'
+import { medicationSchema } from './medication'
+import { doctorSchema } from './doctor'
+import { patientSchema } from './patient'
 
-/* ========= Prescription Base Schema (without refinements) ========= */
-const prescriptionBaseSchema = z.object({
-  prescriptionDate: z.coerce.date({
-    description: 'Date when prescription was issued',
-    required_error: 'Prescription date is required',
-    invalid_type_error: 'Invalid date format'
-  }),
-  dosage: z.number({
-    description: 'Medication dosage in mg',
-    required_error: 'Dosage is required',
-    invalid_type_error: 'Dosage must be a number'
-  }).positive('Dosage must be positive'),
-  duration: z.number({
-    description: 'Treatment duration in days',
-    required_error: 'Duration is required',
-    invalid_type_error: 'Duration must be a number'
-  }).int('Duration must be an integer').positive('Duration must be positive'),
-  comments: z
-    .string({ description: 'Additional medical comments' })
-    .min(10, 'Comments must be at least 10 characters')
-    .max(1000, 'Comments cannot exceed 1000 characters')
-    .trim(),
-  isPrescribed: z.boolean({
-    description: 'Flag indicating if prescription is active',
-    required_error: 'Prescription status is required'
-  }).default(false),
-  patientId: commonFields.id,
-  medicationId: medicationSchema.shape.id.optional(),
-  doctorId: doctorSchema.shape.id.optional(),
-}).strict();
+// Base schema for prescription data, excluding personal fields
+export const prescriptionSchema = z
+  .object({
+    ...commonFields, // Spread common fields (e.g., id, other shared properties)
+    prescriptionDate: z.coerce.date(), // Define prescription date field, coerced to Date
+    dosage: z.number(), // Define dosage field, must be a number
+    duration: z.number(), // Define duration field, must be a number
+    comments: z // Define comments field
+      .string({ description: 'Additional medical comments' }) // Must be a string with description
+      .min(10, 'Comments must be at least 10 characters') // Minimum length of 10 characters
+      .max(1000, 'Comments cannot exceed 1000 characters') // Maximum length of 1000 characters
+      .trim(), // Remove leading/trailing whitespace
+    isPrescribed: z.boolean(), // Define isPrescribed field, must be a boolean
+    patientId: patientSchema.shape.id.optional(), // Define optional patientId field, referencing patient schema
+    medicationId: medicationSchema.shape.id.optional(), // Define optional medicationId field, referencing medication schema
+    doctorId: doctorSchema.shape.id.optional(), // Define optional doctorId field, referencing doctor schema
+  })
+  .omit({
+    firstName: true, // Exclude firstName from schema
+    lastName: true, // Exclude lastName from schema
+    address: true, // Exclude address from schema
+    email: true, // Exclude email from schema
+    phoneNumber: true, // Exclude phoneNumber from schema
+  })
 
-/* ========= Prescription Refinement ========= */
-const prescriptionRefinement = (data: z.infer<typeof prescriptionBaseSchema>, ctx: z.RefinementCtx) => {
-  if (data.isPrescribed) {
-    if (!data.medicationId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Medication ID is required for active prescriptions',
-        path: ['medicationId'],
-      });
-    }
-    if (!data.doctorId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Doctor ID is required for active prescriptions',
-        path: ['doctorId'],
-      });
-    }
-  }
-};
-
-/* ========= Prescription Schema ========= */
-export const prescriptionSchema = prescriptionBaseSchema
-  .extend({ id: commonFields.id })
-  .superRefine(prescriptionRefinement);
-
-/* ========= Prescription Create Schema ========= */
-export const createPrescriptionSchema = prescriptionBaseSchema.superRefine(prescriptionRefinement);
-
-/* ========= Prescription Update Schema ========= */
-export const updatePrescriptionSchema = prescriptionBaseSchema
-  .partial()
+// Schema for creating new prescription, omitting id (auto-generated)
+export const createPrescriptionSchema = prescriptionSchema
+  .omit({ id: true })
   .superRefine((data, ctx) => {
-    // Only validate if isPrescribed is explicitly set to true
+    // Validate medicationId and doctorId requirements when isPrescribed is true
     if (data.isPrescribed === true) {
       if (data.medicationId === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Medication ID is required for active prescriptions',
           path: ['medicationId'],
-        });
+        })
       }
       if (data.doctorId === undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Doctor ID is required for active prescriptions',
           path: ['doctorId'],
-        });
+        })
       }
     }
-  });
+  })
 
-/* ========= Type Exports ========= */
-export type Prescription = z.infer<typeof prescriptionSchema>;
-export type CreatePrescription = z.infer<typeof createPrescriptionSchema>;
-export type UpdatePrescription = z.infer<typeof updatePrescriptionSchema>;
+// Schema for updating prescription, all fields optional, no extra fields allowed
+export const updatePrescriptionSchema = prescriptionSchema
+  .partial() // Make all fields optional
+  .strict() // Prevent extra fields
+  .superRefine((data, ctx) => {
+    // Validate medicationId and doctorId requirements when isPrescribed is true
+    if (data.isPrescribed === true) {
+      if (data.medicationId === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Medication ID is required for active prescriptions',
+          path: ['medicationId'],
+        })
+      }
+      if (data.doctorId === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Doctor ID is required for active prescriptions',
+          path: ['doctorId'],
+        })
+      }
+    }
+  })
+
+// TypeScript types inferred from Zod schemas
+export type Prescription = z.infer<typeof prescriptionSchema> // Type for prescription data
+export type CreatePrescription = z.infer<typeof createPrescriptionSchema> // Type for creating prescription
+export type UpdatePrescription = z.infer<typeof updatePrescriptionSchema> // Type for updating prescription
